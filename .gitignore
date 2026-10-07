@@ -1,0 +1,22 @@
+### Gradle / Build ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+
+### IDE ###
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.DS_Store
+
+### 환경 / 비밀 값 ###
+.env
+application-local.yml
+application-local.properties
+
+### Claude Code 로컬 파일 ###
+.claude/settings.local.json
+.scratch/
