@@ -23,13 +23,15 @@
    - `KEYWORD_RELATION (keyword_id, related_keyword_id)`
 6. **테이블명은 `TB_` 접두사 없이 통일한다.**
 7. **무결성은 DB가 지킨다.** FK는 `ON DELETE CASCADE`, 점수는 0~1, 순위는 1~100 CHECK, 자기 자신과의 연관어는 CHECK로 막는다.
+8. **로그인 기능을 제외한다 (2026-10-14).** `USERS`, `USER_CATEGORY` 테이블과 인증·내 관심 카테고리 API를 모두 제거했다. 스키마는 7개 테이블이다. 로그인이 다시 필요해지면 새 ADR로 추가한다.
+9. **트렌드 지수 예측치는 DB에 저장하지 않는다.** `/keywords/{id}/trend-index`의 `forecast`는 AI 서버(FastAPI)에서 실시간으로 받아 응답에 포함한다. `history`만 `TREND_INDEX_HISTORY`에서 조회한다.
+10. **연관도 변화량은 제공하지 않는다.** `KEYWORD_RELATION`에는 현재 연관도만 있고 이력이 없으므로 API에서 `relevanceChange`를 제거했다.
 
 ## 미정 (결정 시 이 ADR 또는 새 ADR에 반영)
 
 - `RISING`: 랭킹 유형(Rising Trend 화면)과 뱃지가 어떻게 구분되는지
 - `STEADY` 뱃지의 `awarded_at` 의미 (부여 시각 vs 유지 시작 시점)
 - 카테고리의 개수와 종류 (초기 데이터)
-- 로그인 방식: JWT 자체 발급 vs Google OAuth
 - 카테고리 필터가 단일 선택인지 다중 선택인지
 - 뱃지 검색을 상세 검색 API 안에서 처리할지, 별도 엔드포인트로 둘지
 
