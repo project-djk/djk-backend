@@ -24,6 +24,7 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
 - base path는 `/api/v1`.
 - 모든 응답은 `ApiResponse`(`isSuccess` / `message` / `details`)로 감싼다.
 - 트렌드 지수는 DB에 0~1(`DECIMAL(6,4)`)로 저장하고, API 응답에서는 0~100으로 환산해 내려준다. 환산은 응답 DTO를 만드는 곳 한 군데에서만 한다.
+- API 명세는 노션 ["API 명세서"](https://app.notion.com/p/kuclubunion/DJK-API-931991323bb783b290bf81b6f03ab321?source=copy_link) 페이지가 기준이다. 구현 전에 해당 엔드포인트 페이지를 읽는다.
 
 ### DB
 
@@ -49,6 +50,7 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
 - 요구가 애매하면 구현하지 말고 먼저 사용자와 정렬한다.
 - 결정은 말로만 두지 않고 ADR에 남긴다. 에이전트가 초안을 쓰고 사람이 확인한다.
 - 새 용어가 생기거나 중요한 설계 결정을 내렸을 때만 `CONTEXT.md` / ADR을 갱신한다. 문서 작업 자체가 목표가 아니다.
+- 작업 시작 시 노션 Status를 "개발 중"으로, PR 머지 후 "개발 완료"로 바꾼다.
 
 ### 흐름
 
