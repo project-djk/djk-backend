@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -130,6 +132,25 @@ class RecommendedKeywordApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.keywords[0].keywordId").value(keywordId))
                 .andExpect(jsonPath("$.details.keywords[0].trendScore").value(82.34));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "101", "abc"})
+    @DisplayName("limit 이 1~100 밖이거나 숫자가 아니면 400 을 내려준다")
+    void rejectsInvalidLimit(String limit) throws Exception {
+        mockMvc.perform(get(URL).param("limit", limit))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false))
+                .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."))
+                .andExpect(jsonPath("$.details").value(nullValue()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", "100"})
+    @DisplayName("limit 의 경계값 1 과 100 은 허용한다")
+    void acceptsBoundaryLimit(String limit) throws Exception {
+        mockMvc.perform(get(URL).param("limit", limit))
+                .andExpect(status().isOk());
     }
 
     private long insertKeyword(String name) {
