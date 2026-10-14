@@ -12,6 +12,10 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+      # 테이블명이 대문자(KEYWORD 등)이고 Linux MySQL 은 대소문자를 구분하므로, 매핑에 적은 이름을 그대로 쓴다.
+      # 대신 엔티티의 테이블/컬럼명은 @Table / @Column 으로 모두 명시한다.
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     properties:
       hibernate:
         jdbc:
