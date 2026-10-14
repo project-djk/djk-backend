@@ -1,5 +1,6 @@
 package com.djk.domain.ranking;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,11 @@ public class RankingQueryService {
     private final RankingSnapshotRepository rankingSnapshotRepository;
 
     public LatestRanking getLatestTop(RankingType rankingType, int limit) {
-        return rankingSnapshotRepository.findLatestSnapshotAt(rankingType)
-                .map(snapshotAt -> new LatestRanking(
-                        snapshotAt,
-                        rankingSnapshotRepository.findRanking(rankingType, snapshotAt, Limit.of(limit))))
-                .orElseGet(LatestRanking::empty);
+        List<RankingSnapshot> rows = rankingSnapshotRepository.findLatestSnapshotRows(rankingType, Limit.of(limit));
+        if (rows.isEmpty()) {
+            return LatestRanking.empty();
+        }
+        // 한 스냅샷의 row 는 모두 같은 snapshot_at 을 가진다.
+        return new LatestRanking(rows.get(0).getSnapshotAt(), rows);
     }
 }

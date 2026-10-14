@@ -1,11 +1,14 @@
 package com.djk.domain.keyword;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.djk.domain.ranking.RankingType;
 import com.djk.support.MySqlTestContainer;
+import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,9 +21,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @AutoConfigureMockMvc
 @Import(MySqlTestContainer.class)
 class RecommendedKeywordApiTest {
@@ -34,6 +39,9 @@ class RecommendedKeywordApiTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
     @BeforeEach
     void cleanUp() {
         jdbcTemplate.update("DELETE FROM RANKING_SNAPSHOT_BADGE");
@@ -44,10 +52,7 @@ class RecommendedKeywordApiTest {
     @Test
     @DisplayName("limit 을 생략하면 TREND 최신 스냅샷의 1위부터 10개를 순위 순서로 내려준다")
     void returnsTop10OfLatestTrendSnapshotByDefault() throws Exception {
-        for (int rank = 12; rank >= 1; rank--) {
-            long keywordId = insertKeyword("키워드" + rank);
-            insertSnapshot("TREND", keywordId, rank, new BigDecimal("0.5000"), LATEST);
-        }
+        insertTrendRows(12, LATEST);
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -65,7 +70,7 @@ class RecommendedKeywordApiTest {
     @DisplayName("TREND 스냅샷이 하나도 없으면 200 과 빈 목록, snapshotAt=null 을 내려준다")
     void returnsEmptyWhenNoTrendSnapshot() throws Exception {
         long keywordId = insertKeyword("포텐셜만");
-        insertSnapshot("POTENTIAL", keywordId, 1, new BigDecimal("0.9000"), LATEST);
+        insertSnapshot(RankingType.POTENTIAL, keywordId, 1, new BigDecimal("0.9000"), LATEST);
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -83,10 +88,10 @@ class RecommendedKeywordApiTest {
         long latest = insertKeyword("오늘1위");
         long rising = insertKeyword("라이징1위");
         long potential = insertKeyword("포텐셜1위");
-        insertSnapshot("TREND", old, 1, new BigDecimal("0.9900"), LATEST.minusDays(1));
-        insertSnapshot("TREND", latest, 1, new BigDecimal("0.8000"), LATEST);
-        insertSnapshot("RISING", rising, 1, new BigDecimal("0.9500"), LATEST.plusDays(1));
-        insertSnapshot("POTENTIAL", potential, 1, new BigDecimal("0.9500"), LATEST);
+        insertSnapshot(RankingType.TREND, old, 1, new BigDecimal("0.9900"), LATEST.minusDays(1));
+        insertSnapshot(RankingType.TREND, latest, 1, new BigDecimal("0.8000"), LATEST);
+        insertSnapshot(RankingType.RISING, rising, 1, new BigDecimal("0.9500"), LATEST.plusDays(1));
+        insertSnapshot(RankingType.POTENTIAL, potential, 1, new BigDecimal("0.9500"), LATEST);
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -98,10 +103,8 @@ class RecommendedKeywordApiTest {
     @Test
     @DisplayName("최신 스냅샷의 row 가 limit 보다 적으면 있는 만큼만 내려준다")
     void returnsOnlyExistingRowsWhenFewerThanLimit() throws Exception {
-        insertSnapshot("TREND", insertKeyword("이전스냅샷"), 4, new BigDecimal("0.5000"), LATEST.minusDays(1));
-        for (int rank = 1; rank <= 3; rank++) {
-            insertSnapshot("TREND", insertKeyword("키워드" + rank), rank, new BigDecimal("0.5000"), LATEST);
-        }
+        insertSnapshot(RankingType.TREND, insertKeyword("이전스냅샷"), 4, new BigDecimal("0.5000"), LATEST.minusDays(1));
+        insertTrendRows(3, LATEST);
 
         mockMvc.perform(get(URL).param("limit", "10"))
                 .andExpect(status().isOk())
@@ -112,9 +115,7 @@ class RecommendedKeywordApiTest {
     @Test
     @DisplayName("limit 만큼만 잘라서 내려준다")
     void respectsLimit() throws Exception {
-        for (int rank = 1; rank <= 5; rank++) {
-            insertSnapshot("TREND", insertKeyword("키워드" + rank), rank, new BigDecimal("0.5000"), LATEST);
-        }
+        insertTrendRows(5, LATEST);
 
         mockMvc.perform(get(URL).param("limit", "3"))
                 .andExpect(status().isOk())
@@ -126,7 +127,7 @@ class RecommendedKeywordApiTest {
     @DisplayName("트렌드 지수는 0~1 값을 100점으로 환산하되 반올림하지 않는다")
     void convertsTrendScoreTo100ScaleWithoutRounding() throws Exception {
         long keywordId = insertKeyword("마라탕");
-        insertSnapshot("TREND", keywordId, 1, new BigDecimal("0.8234"), LATEST);
+        insertSnapshot(RankingType.TREND, keywordId, 1, new BigDecimal("0.8234"), LATEST);
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -153,6 +154,27 @@ class RecommendedKeywordApiTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("추천 검색어 조회는 키워드 정보까지 SQL 1번으로 끝난다 (N+1 없음)")
+    void loadsRecommendedKeywordsWithSingleQuery() throws Exception {
+        insertTrendRows(10, LATEST);
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.keywords[9].keywordName").value("키워드10"));
+
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+    }
+
+    /** TREND 스냅샷에 "키워드1"~"키워드{count}" 를 1위부터 넣는다. 정렬을 검증하도록 역순으로 INSERT 한다. */
+    private void insertTrendRows(int count, LocalDateTime snapshotAt) {
+        for (int rank = count; rank >= 1; rank--) {
+            insertSnapshot(RankingType.TREND, insertKeyword("키워드" + rank), rank, new BigDecimal("0.5000"), snapshotAt);
+        }
+    }
+
     private long insertKeyword(String name) {
         jdbcTemplate.update(
                 "INSERT INTO KEYWORD (keyword_name, first_collected_at) VALUES (?, ?)",
@@ -161,11 +183,11 @@ class RecommendedKeywordApiTest {
                 "SELECT id FROM KEYWORD WHERE keyword_name = ?", Long.class, name);
     }
 
-    private void insertSnapshot(String rankingType, long keywordId, int rank, BigDecimal score,
+    private void insertSnapshot(RankingType rankingType, long keywordId, int rank, BigDecimal score,
                                 LocalDateTime snapshotAt) {
         jdbcTemplate.update(
                 "INSERT INTO RANKING_SNAPSHOT (ranking_type, keyword_id, rank_position, trend_score, snapshot_at)"
                         + " VALUES (?, ?, ?, ?, ?)",
-                rankingType, keywordId, rank, score, snapshotAt);
+                rankingType.name(), keywordId, rank, score, snapshotAt);
     }
 }
