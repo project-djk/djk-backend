@@ -20,6 +20,6 @@ public class RankingQueryService {
                 .map(snapshotAt -> new LatestRanking(
                         snapshotAt,
                         rankingSnapshotRepository.findRanking(rankingType, snapshotAt, Limit.of(limit))))
-                .orElseThrow();
+                .orElseGet(LatestRanking::empty);
     }
 }

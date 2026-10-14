@@ -1,5 +1,6 @@
 package com.djk.domain.keyword;
 
+import com.djk.domain.ranking.LatestRanking;
 import com.djk.domain.ranking.RankingQueryService;
 import com.djk.domain.ranking.RankingType;
 import com.djk.global.response.ApiResponse;
@@ -20,8 +21,8 @@ public class RecommendedKeywordController {
     @GetMapping("/recommended")
     public ApiResponse<RecommendedKeywordsResponse> getRecommended(
             @RequestParam(defaultValue = "10") int limit) {
-        RecommendedKeywordsResponse response =
-                RecommendedKeywordsResponse.from(rankingQueryService.getLatestTop(RankingType.TREND, limit));
-        return ApiResponse.success("추천 검색어를 조회하였습니다.", response);
+        LatestRanking ranking = rankingQueryService.getLatestTop(RankingType.TREND, limit);
+        String message = ranking.isEmpty() ? "추천 검색어가 없습니다." : "추천 검색어를 조회하였습니다.";
+        return ApiResponse.success(message, RecommendedKeywordsResponse.from(ranking));
     }
 }
