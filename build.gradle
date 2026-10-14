@@ -49,4 +49,6 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // CI 러너·운영 컨테이너처럼 JVM 시간대가 KST 가 아니어도 시각이 어긋나지 않는지 로컬에서도 검증한다.
+    systemProperty 'user.timezone', 'UTC'
 }
