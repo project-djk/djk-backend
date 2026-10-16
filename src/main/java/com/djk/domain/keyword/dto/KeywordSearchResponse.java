@@ -15,7 +15,7 @@ public record KeywordSearchResponse(
         @Schema(description = "페이지 크기", example = "20") int size,
         @Schema(description = "조건에 맞는 전체 키워드 수", example = "8") long totalElements,
         @Schema(description = "전체 페이지 수", example = "1") int totalPages,
-        List<Item> items) {
+        @Schema(description = "정렬된 검색 결과. 없으면 빈 배열") List<Item> items) {
 
     @Schema(name = "KeywordSearchItem")
     public record Item(

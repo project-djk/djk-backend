@@ -54,10 +54,11 @@ public class KeywordSearchService {
         List<KeywordSearchRow> rows = keywordRepository.search(condition, latest);
         long total = keywordRepository.countSearch(condition, latest);
         return new KeywordSearchResult(
-                snapshotAt, condition.page(), condition.size(), total, toHits(rows, latest, condition.period()));
+                snapshotAt, condition.page(), condition.size(), total, toHits(rows, latest, snapshotAt, condition.period()));
     }
 
-    private List<KeywordSearchHit> toHits(List<KeywordSearchRow> rows, SnapshotTimes latest, TrendPeriod period) {
+    private List<KeywordSearchHit> toHits(List<KeywordSearchRow> rows, SnapshotTimes latest,
+                                          LocalDateTime snapshotAt, TrendPeriod period) {
         if (rows.isEmpty()) {
             return List.of();
         }
@@ -70,9 +71,7 @@ public class KeywordSearchService {
         Map<Long, List<String>> relatedKeywords =
                 keywordRepository.findTopRelatedKeywordNames(keywordIds, RELATED_KEYWORD_LIMIT);
         // trendLine 은 snapshotAt 까지의 과거 period 다. TREND 스냅샷이 없으면 지금을 기준으로 한다.
-        LocalDateTime trendLineEnd = latest.of(RankingType.TREND) == null
-                ? LocalDateTime.now(KST)
-                : latest.of(RankingType.TREND);
+        LocalDateTime trendLineEnd = snapshotAt == null ? LocalDateTime.now(KST) : snapshotAt;
         Map<Long, List<TrendIndexHistory>> trendLines = keywordRepository.findTrendHistories(
                 keywordIds, trendLineEnd.minusDays(period.days()), trendLineEnd);
 

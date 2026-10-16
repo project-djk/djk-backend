@@ -107,6 +107,33 @@ class KeywordSearchApiTest {
     }
 
     @Test
+    @DisplayName("TREND 스냅샷이 없으면 snapshotAt=null 이지만 다른 랭킹의 키워드는 내려준다")
+    void searchesWithoutTrendSnapshot() throws Exception {
+        long keywordId = insertKeyword("포텐셜만");
+        insertSnapshot(RankingType.POTENTIAL, keywordId, 1, "0.7000", LATEST);
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.snapshotAt").value(nullValue()))
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].trend").value(nullValue()))
+                .andExpect(jsonPath("$.details.items[0].potential.score").value(70.0));
+    }
+
+    @Test
+    @DisplayName("조건에 맞는 키워드가 없으면 200 과 빈 목록을 내려준다")
+    void returnsEmptyWhenNothingMatches() throws Exception {
+        insertSnapshot(RankingType.TREND, insertKeyword("마라탕"), 1, "0.9000", LATEST);
+
+        mockMvc.perform(get(URL).param("q", "없는키워드"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.snapshotAt").value("2026-07-24T09:00:00"))
+                .andExpect(jsonPath("$.details.totalElements").value(0))
+                .andExpect(jsonPath("$.details.totalPages").value(0))
+                .andExpect(jsonPath("$.details.items").isEmpty());
+    }
+
+    @Test
     @DisplayName("page 와 size 로 잘라서 내려주고 전체 개수와 페이지 수를 함께 준다")
     void paginates() throws Exception {
         for (int rank = 1; rank <= 5; rank++) {
