@@ -2,6 +2,7 @@ package com.djk.domain.keyword.controller;
 
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchResponse;
+import com.djk.domain.keyword.dto.ScoreRange;
 import com.djk.domain.keyword.service.KeywordSearchService;
 import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.global.response.ApiResponse;
@@ -26,9 +27,18 @@ public class KeywordSearchController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) List<BadgeType> badgeType,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(100) int trendMin,
+            @RequestParam(defaultValue = "100") @Min(0) @Max(100) int trendMax,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(100) int potentialMin,
+            @RequestParam(defaultValue = "100") @Min(0) @Max(100) int potentialMax,
+            @RequestParam(defaultValue = "false") boolean risingOnly,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        KeywordSearchCondition condition = new KeywordSearchCondition(q, categoryId, badgeType, page, size);
+        KeywordSearchCondition condition = new KeywordSearchCondition(
+                q, categoryId, badgeType,
+                ScoreRange.of("trend", trendMin, trendMax),
+                ScoreRange.of("potential", potentialMin, potentialMax),
+                risingOnly, page, size);
         return ApiResponse.success("검색 결과를 조회하였습니다.",
                 KeywordSearchResponse.from(keywordSearchService.search(condition)));
     }

@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -218,6 +220,76 @@ class KeywordSearchApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.isSuccess").value(false))
                 .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
+    @Test
+    @DisplayName("지수 범위는 양 끝값을 포함하고, 범위를 좁히면 그 지수가 없는 키워드는 뺀다")
+    void filtersByScoreRanges() throws Exception {
+        long both = insertKeyword("둘다");
+        long trendOnly = insertKeyword("트렌드만");
+        long potentialOnly = insertKeyword("포텐셜만");
+        insertSnapshot(RankingType.TREND, both, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, both, 2, "0.3000", LATEST);
+        insertSnapshot(RankingType.TREND, trendOnly, 2, "0.5000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, potentialOnly, 1, "0.7000", LATEST);
+
+        mockMvc.perform(get(URL).param("trendMin", "50"))
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("둘다"))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("트렌드만"));
+
+        mockMvc.perform(get(URL).param("trendMax", "50"))
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("트렌드만"));
+
+        mockMvc.perform(get(URL).param("potentialMin", "30").param("potentialMax", "70"))
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("둘다"))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("포텐셜만"));
+    }
+
+    @Test
+    @DisplayName("trendMin 이 trendMax 보다 크면 400 과 보낸 값을 details 로 내려준다")
+    void rejectsInvertedTrendRange() throws Exception {
+        mockMvc.perform(get(URL).param("trendMin", "90").param("trendMax", "50"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false))
+                .andExpect(jsonPath("$.message").value("trendMin은 trendMax보다 클 수 없습니다."))
+                .andExpect(jsonPath("$.details.trendMin").value(90))
+                .andExpect(jsonPath("$.details.trendMax").value(50));
+    }
+
+    @Test
+    @DisplayName("potentialMin 이 potentialMax 보다 크면 400 과 보낸 값을 details 로 내려준다")
+    void rejectsInvertedPotentialRange() throws Exception {
+        mockMvc.perform(get(URL).param("potentialMin", "80").param("potentialMax", "20"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("potentialMin은 potentialMax보다 클 수 없습니다."))
+                .andExpect(jsonPath("$.details.potentialMin").value(80))
+                .andExpect(jsonPath("$.details.potentialMax").value(20));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"trendMin,-1", "trendMax,101", "potentialMin,-1", "potentialMax,101", "trendMin,abc"})
+    @DisplayName("지수 범위 값이 0~100 밖이거나 숫자가 아니면 공통 400 을 내려준다")
+    void rejectsOutOfRangeScore(String name, String value) throws Exception {
+        mockMvc.perform(get(URL).param(name, value))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
+    @Test
+    @DisplayName("risingOnly=true 이면 최신 RISING 스냅샷에 든 키워드만 내려준다 (RISING 뱃지와는 별개)")
+    void filtersRisingSnapshotKeywords() throws Exception {
+        long rising = insertKeyword("라이징랭킹");
+        long badgeOnly = insertKeyword("급상승뱃지만");
+        insertSnapshot(RankingType.RISING, rising, 1, "0.4000", LATEST);
+        insertBadge(insertSnapshot(RankingType.TREND, badgeOnly, 1, "0.9000", LATEST), "RISING");
+
+        mockMvc.perform(get(URL).param("risingOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("라이징랭킹"));
     }
 
     private long insertKeyword(String name) {

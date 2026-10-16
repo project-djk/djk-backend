@@ -4,6 +4,7 @@ import static com.djk.domain.keyword.entity.QKeyword.keyword;
 
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchRow;
+import com.djk.domain.keyword.dto.ScoreRange;
 import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
 import com.djk.domain.ranking.dto.LatestSnapshotTimes;
@@ -74,8 +75,19 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
                 trend.id.isNotNull().or(potential.id.isNotNull()).or(rising.id.isNotNull()),
                 matchesQuery(condition.query()),
                 inCategory(condition.categoryId()),
-                hasAnyBadge(condition.badgeTypes())
+                hasAnyBadge(condition.badgeTypes()),
+                scoreWithin(trend, condition.trendRange()),
+                scoreWithin(potential, condition.potentialRange()),
+                condition.risingOnly() ? rising.id.isNotNull() : null
         };
+    }
+
+    /** 범위를 좁혔을 때만 건다. 그 랭킹에 없는 키워드(점수 null)는 between 에서 빠진다. */
+    private BooleanExpression scoreWithin(QRankingSnapshot snapshot, ScoreRange range) {
+        if (range.isUnbounded()) {
+            return null;
+        }
+        return snapshot.trendScore.between(range.lowerScore(), range.upperScore());
     }
 
     /** 최신 TREND·POTENTIAL·RISING 스냅샷 row 중 하나에 그 뱃지가 붙어 있다. */
