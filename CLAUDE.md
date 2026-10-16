@@ -26,7 +26,7 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
 - 모든 응답은 `ApiResponse`(`isSuccess` / `message` / `details`)로 감싼다.
 - 트렌드 지수는 DB에 0~1(`DECIMAL(6,4)`)로 저장하고, API 응답에서는 0~100으로 환산해 내려준다. 환산은 응답 DTO를 만드는 곳 한 군데에서만 한다.
 - API 명세는 노션 ["API 명세서"](https://app.notion.com/p/kuclubunion/DJK-API-931991323bb783b290bf81b6f03ab321?source=copy_link) 페이지가 기준이다. 구현 전에 해당 엔드포인트 페이지를 읽는다.
-- 모든 API에 Swagger 문서를 붙인다. 컨트롤러에 `@Tag`, 엔드포인트에 `@Operation`(summary·description), 파라미터에 `@Parameter`, 응답 코드별 예시를 단다. Swagger는 실제 구현을 보여주는 문서이고, 명세의 기준은 노션이다. 둘이 다르면 노션에 맞춘다.
+- 모든 API에 Swagger 문서를 붙인다. 컨트롤러에 `@Tag`, 엔드포인트에 `@Operation`(summary·description), 파라미터에 `@Parameter`를 단다. 성공 응답 예시는 응답 DTO 필드의 `@Schema(example = ...)`로 달고(200 응답에 `@Content`를 직접 쓰면 스키마가 사라진다), 에러 응답만 `@ApiResponse`에 예시를 적는다. 자세한 규칙은 ADR-0004. Swagger는 실제 구현을 보여주는 문서이고, 명세의 기준은 노션이다. 둘이 다르면 노션에 맞춘다.
 - Swagger UI와 `/v3/api-docs`는 `local`·`dev` 프로파일에서만 켜진다. 운영에서는 꺼져 있다.
 
 ### DB
