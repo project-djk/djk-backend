@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RankingSnapshotRepository extends JpaRepository<RankingSnapshot, Long> {
 
@@ -16,5 +17,5 @@ public interface RankingSnapshotRepository extends JpaRepository<RankingSnapshot
               AND r.snapshotAt = (SELECT MAX(s.snapshotAt) FROM RankingSnapshot s WHERE s.rankingType = :rankingType)
             ORDER BY r.rankPosition
             """)
-    List<RankingSnapshot> findLatestSnapshotRows(RankingType rankingType, Limit limit);
+    List<RankingSnapshot> findLatestSnapshotRows(@Param("rankingType") RankingType rankingType, Limit limit);
 }
