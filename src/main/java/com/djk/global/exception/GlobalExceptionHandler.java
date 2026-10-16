@@ -28,4 +28,17 @@ public class GlobalExceptionHandler {
         log.debug("잘못된 요청 파라미터: {}", e.getMessage());
         return ApiResponse.fail(INVALID_PARAMETER);
     }
+
+    /** 파라미터 조합이 잘못됨. 명세에 따라 보낸 값을 details 로 돌려준다. */
+    @ExceptionHandler(InvalidParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Object> handleInvalidParameterCombination(InvalidParameterException e) {
+        return ApiResponse.fail(e.getMessage(), e.getDetails());
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotFound(ResourceNotFoundException e) {
+        return ApiResponse.fail(e.getMessage());
+    }
 }

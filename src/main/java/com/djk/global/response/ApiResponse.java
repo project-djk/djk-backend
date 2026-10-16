@@ -26,6 +26,10 @@ public final class ApiResponse<T> {
         return new ApiResponse<>(false, message, null);
     }
 
+    public static <T> ApiResponse<T> fail(String message, T details) {
+        return new ApiResponse<>(false, message, details);
+    }
+
     // getter 이름(isSuccess)만으로는 JSON 키가 "success"가 되므로 명시적으로 지정한다.
     @JsonProperty("isSuccess")
     public boolean isSuccess() {

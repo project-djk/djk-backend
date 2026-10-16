@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class OpenApiLocalProfileTest {
 
     private static final String RECOMMENDED = "$.paths['/api/v1/keywords/recommended'].get";
+    private static final String SEARCH = "$.paths['/api/v1/keywords/search'].get";
 
     @Autowired
     private MockMvc mockMvc;
@@ -52,6 +53,24 @@ class OpenApiLocalProfileTest {
                         .value(82.34))
                 .andExpect(jsonPath("$.components.schemas.RecommendedKeywordsResponse.properties.snapshotAt.example")
                         .value("2026-07-24T09:00:00"));
+    }
+
+    @Test
+    @DisplayName("상세 검색 API 는 파라미터 기본값·제약, 에러 응답, 항목 스키마 예시를 문서에 보여준다")
+    void documentsKeywordSearchApi() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(SEARCH + ".summary").value("키워드 상세 검색"))
+                .andExpect(jsonPath(SEARCH + ".parameters[?(@.name == 'period')].schema.default").value("7D"))
+                .andExpect(jsonPath(SEARCH + ".parameters[?(@.name == 'sort')].schema.enum[2]").value("LATEST"))
+                .andExpect(jsonPath(SEARCH + ".parameters[?(@.name == 'size')].schema.maximum").value(100))
+                .andExpect(jsonPath(SEARCH + ".parameters[?(@.name == 'trendMin')].description").exists())
+                .andExpect(jsonPath(SEARCH + ".responses['400']").exists())
+                .andExpect(jsonPath(SEARCH + ".responses['404']").exists())
+                .andExpect(jsonPath(SEARCH + ".responses['200'].content['*/*'].schema['$ref']")
+                        .value("#/components/schemas/ApiResponseKeywordSearchResponse"))
+                .andExpect(jsonPath("$.components.schemas.KeywordSearchTrend.properties.trendScore.example")
+                        .value(82.34));
     }
 
     @Test
