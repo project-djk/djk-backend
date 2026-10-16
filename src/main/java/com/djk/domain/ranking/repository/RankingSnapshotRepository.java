@@ -1,5 +1,7 @@
-package com.djk.domain.ranking;
+package com.djk.domain.ranking.repository;
 
+import com.djk.domain.ranking.entity.RankingSnapshot;
+import com.djk.domain.ranking.entity.RankingType;
 import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;

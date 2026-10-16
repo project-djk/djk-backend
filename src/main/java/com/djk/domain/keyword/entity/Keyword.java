@@ -1,4 +1,4 @@
-package com.djk.domain.keyword;
+package com.djk.domain.keyword.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

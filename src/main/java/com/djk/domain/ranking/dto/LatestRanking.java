@@ -1,5 +1,6 @@
-package com.djk.domain.ranking;
+package com.djk.domain.ranking.dto;
 
+import com.djk.domain.ranking.entity.RankingSnapshot;
 import java.time.LocalDateTime;
 import java.util.List;
 

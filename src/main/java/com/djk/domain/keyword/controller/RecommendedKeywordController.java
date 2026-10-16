@@ -1,8 +1,9 @@
-package com.djk.domain.keyword;
+package com.djk.domain.keyword.controller;
 
-import com.djk.domain.ranking.LatestRanking;
-import com.djk.domain.ranking.RankingQueryService;
-import com.djk.domain.ranking.RankingType;
+import com.djk.domain.keyword.dto.RecommendedKeywordsResponse;
+import com.djk.domain.ranking.dto.LatestRanking;
+import com.djk.domain.ranking.entity.RankingType;
+import com.djk.domain.ranking.service.RankingQueryService;
 import com.djk.global.response.ApiResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

@@ -1,6 +1,6 @@
-package com.djk.domain.ranking;
+package com.djk.domain.ranking.entity;
 
-import com.djk.domain.keyword.Keyword;
+import com.djk.domain.keyword.entity.Keyword;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -1,5 +1,9 @@
-package com.djk.domain.ranking;
+package com.djk.domain.ranking.service;
 
+import com.djk.domain.ranking.dto.LatestRanking;
+import com.djk.domain.ranking.entity.RankingSnapshot;
+import com.djk.domain.ranking.entity.RankingType;
+import com.djk.domain.ranking.repository.RankingSnapshotRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;

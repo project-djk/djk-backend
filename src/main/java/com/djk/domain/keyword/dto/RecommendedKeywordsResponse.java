@@ -1,7 +1,7 @@
-package com.djk.domain.keyword;
+package com.djk.domain.keyword.dto;
 
-import com.djk.domain.ranking.LatestRanking;
-import com.djk.domain.ranking.RankingSnapshot;
+import com.djk.domain.ranking.dto.LatestRanking;
+import com.djk.domain.ranking.entity.RankingSnapshot;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;

@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | Java | 21 | 로컬 JDK가 다르면 `build.gradle`의 toolchain 수정 |
 | Spring Boot | 3.5.6 | 새 버전으로 올릴 때는 별도 이슈로 진행 |
-| 패키지 | `com.djk` | 도메인별 `domain.*`, 공통은 `global.*` |
+| 패키지 | `com.djk` | 도메인별 `domain.<도메인>` 안에 `controller`·`service`·`repository`·`entity`·`dto` 계층, 공통은 `global.*` (2026-10-16 PR #2 리뷰로 확정) |
 
 ## 근거
 

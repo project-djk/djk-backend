@@ -1,4 +1,4 @@
-package com.djk.domain.keyword;
+package com.djk.domain.keyword.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.djk.domain.ranking.RankingType;
+import com.djk.domain.ranking.entity.RankingType;
 import com.djk.support.MySqlTestContainer;
 import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
