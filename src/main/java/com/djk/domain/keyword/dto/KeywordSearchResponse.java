@@ -1,5 +1,6 @@
 package com.djk.domain.keyword.dto;
 
+import com.djk.domain.keyword.entity.TrendIndexHistory;
 import com.djk.domain.ranking.entity.BadgeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
@@ -20,18 +21,26 @@ public record KeywordSearchResponse(
     public record Item(
             @Schema(example = "12") Long keywordId,
             @Schema(example = "마라탕") String keywordName,
+            @Schema(description = "키워드가 속한 카테고리 이름", example = "[\"음식\"]") List<String> categories,
+            @Schema(description = "연관도 높은 순 최대 4개", example = "[\"마라\", \"훠궈\", \"중국음식\", \"배달\"]")
+            List<String> relatedKeywords,
             @Schema(description = "최신 TREND·POTENTIAL·RISING 스냅샷 row 에 붙은 뱃지 (중복 없음)", example = "[\"TREND_NEW\"]")
             List<BadgeType> badges,
             @Schema(description = "최신 TREND 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Trend trend,
-            @Schema(description = "최신 POTENTIAL 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Potential potential) {
+            @Schema(description = "최신 POTENTIAL 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Potential potential,
+            @Schema(description = "snapshotAt 기준 과거 period 동안의 트렌드 지수 (측정 시각 순, 스파크라인용)")
+            List<TrendPoint> trendLine) {
 
         static Item from(KeywordSearchHit hit) {
             return new Item(
                     hit.keyword().getId(),
                     hit.keyword().getKeywordName(),
+                    hit.categories(),
+                    hit.relatedKeywords(),
                     hit.badges(),
                     hit.trend() == null ? null : Trend.from(hit.trend()),
-                    hit.potential() == null ? null : Potential.from(hit.potential()));
+                    hit.potential() == null ? null : Potential.from(hit.potential()),
+                    hit.trendLine().stream().map(TrendPoint::from).toList());
         }
     }
 
@@ -60,6 +69,16 @@ public record KeywordSearchResponse(
         static Potential from(RankEntry entry) {
             return new Potential(entry.snapshot().getRankPosition(), entry.rankChange(),
                     toScore100(entry.snapshot().getTrendScore()));
+        }
+    }
+
+    @Schema(name = "KeywordSearchTrendPoint")
+    public record TrendPoint(
+            @Schema(description = "측정 시각 (KST, 오프셋 없음)", example = "2026-07-24T09:00:00") LocalDateTime measuredAt,
+            @Schema(description = "트렌드 지수 (0~100, 반올림하지 않음)", example = "82.00") BigDecimal trendScore) {
+
+        static TrendPoint from(TrendIndexHistory history) {
+            return new TrendPoint(history.getMeasuredAt(), toScore100(history.getTrendScore()));
         }
     }
 

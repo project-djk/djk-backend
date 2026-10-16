@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -337,6 +338,78 @@ class KeywordSearchApiTest {
                 .andExpect(jsonPath("$.details.items[1].badges").isEmpty());
     }
 
+    @Test
+    @DisplayName("categories 는 키워드가 속한 카테고리 이름, relatedKeywords 는 연관도순 최대 4개의 이름이다")
+    void includesCategoriesAndTopRelatedKeywords() throws Exception {
+        long food = insertCategory("음식");
+        long dessert = insertCategory("디저트");
+        long chocolate = insertKeyword("두바이 초콜릿");
+        long plain = insertKeyword("역방향만");
+        insertSnapshot(RankingType.TREND, chocolate, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, plain, 2, "0.8000", LATEST);
+        insertKeywordCategory(chocolate, food);
+        insertKeywordCategory(chocolate, dessert);
+        insertRelation(chocolate, insertKeyword("피스타치오"), "0.9500");
+        insertRelation(chocolate, insertKeyword("카다이프"), "0.9000");
+        insertRelation(chocolate, insertKeyword("편의점"), "0.5000");
+        insertRelation(chocolate, insertKeyword("디저트카페"), "0.7000");
+        insertRelation(chocolate, insertKeyword("쿠키"), "0.3000");
+        insertRelation(plain, chocolate, "0.9900"); // 관계는 방향이 있다. 이 관계는 "역방향만" 의 연관어다
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].categories.length()").value(2))
+                .andExpect(jsonPath("$.details.items[0].categories[0]").value("음식"))
+                .andExpect(jsonPath("$.details.items[0].categories[1]").value("디저트"))
+                .andExpect(jsonPath("$.details.items[0].relatedKeywords.length()").value(4))
+                .andExpect(jsonPath("$.details.items[0].relatedKeywords[0]").value("피스타치오"))
+                .andExpect(jsonPath("$.details.items[0].relatedKeywords[1]").value("카다이프"))
+                .andExpect(jsonPath("$.details.items[0].relatedKeywords[2]").value("디저트카페"))
+                .andExpect(jsonPath("$.details.items[0].relatedKeywords[3]").value("편의점"))
+                .andExpect(jsonPath("$.details.items[1].categories").isEmpty())
+                .andExpect(jsonPath("$.details.items[1].relatedKeywords.length()").value(1))
+                .andExpect(jsonPath("$.details.items[1].relatedKeywords[0]").value("두바이 초콜릿"));
+    }
+
+    @Test
+    @DisplayName("trendLine 은 snapshotAt 기준 과거 period(기본 7D) 동안의 트렌드 지수를 시간순으로 내려준다")
+    void includesTrendLineWithinPeriod() throws Exception {
+        long keywordId = insertKeyword("마라탕");
+        long noHistory = insertKeyword("이력없음");
+        insertSnapshot(RankingType.TREND, keywordId, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, noHistory, 2, "0.8000", LATEST);
+        insertHistory(keywordId, LATEST.minusDays(31), "0.1000");
+        insertHistory(keywordId, LATEST.minusDays(8), "0.2000");
+        insertHistory(keywordId, LATEST, "0.8234");
+        insertHistory(keywordId, LATEST.minusDays(7), "0.3000");
+        insertHistory(keywordId, LATEST.plusHours(1), "0.9900"); // snapshotAt 이후 측정값은 넣지 않는다
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].trendLine.length()").value(2))
+                .andExpect(jsonPath("$.details.items[0].trendLine[0].measuredAt").value("2026-07-17T09:00:00"))
+                .andExpect(jsonPath("$.details.items[0].trendLine[0].trendScore").value(30.0))
+                .andExpect(jsonPath("$.details.items[0].trendLine[1].measuredAt").value("2026-07-24T09:00:00"))
+                .andExpect(jsonPath("$.details.items[0].trendLine[1].trendScore").value(82.34))
+                .andExpect(jsonPath("$.details.items[1].trendLine").isEmpty());
+
+        mockMvc.perform(get(URL).param("period", "30D"))
+                .andExpect(jsonPath("$.details.items[0].trendLine.length()").value(3));
+
+        mockMvc.perform(get(URL).param("period", "90D"))
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].trendLine.length()").value(4));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1D", "7d", "abc"})
+    @DisplayName("period 가 7D / 30D / 90D 가 아니면 400 을 내려준다")
+    void rejectsUnknownPeriod(String period) throws Exception {
+        mockMvc.perform(get(URL).param("period", period))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
     private long insertKeyword(String name) {
         return insertKeyword(name, LocalDateTime.of(2026, 7, 1, 0, 0));
     }
@@ -377,5 +450,11 @@ class KeywordSearchApiTest {
         jdbcTemplate.update(
                 "INSERT INTO RANKING_SNAPSHOT_BADGE (ranking_snapshot_id, badge_type) VALUES (?, ?)",
                 rankingSnapshotId, badgeType);
+    }
+
+    private void insertHistory(long keywordId, LocalDateTime measuredAt, String score) {
+        jdbcTemplate.update(
+                "INSERT INTO TREND_INDEX_HISTORY (keyword_id, measured_at, trend_score) VALUES (?, ?, ?)",
+                keywordId, measuredAt, new BigDecimal(score));
     }
 }

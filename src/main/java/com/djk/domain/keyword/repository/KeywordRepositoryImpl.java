@@ -5,8 +5,12 @@ import static com.djk.domain.keyword.entity.QKeyword.keyword;
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchRow;
 import com.djk.domain.keyword.dto.ScoreRange;
+import com.djk.domain.category.entity.QCategory;
+import com.djk.domain.keyword.entity.QKeyword;
 import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
+import com.djk.domain.keyword.entity.QTrendIndexHistory;
+import com.djk.domain.keyword.entity.TrendIndexHistory;
 import com.djk.domain.ranking.dto.SnapshotTimes;
 import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
@@ -18,7 +22,12 @@ import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -50,6 +59,63 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
                 .where(searchConditions(condition))
                 .fetchOne();
         return count == null ? 0 : count;
+    }
+
+    @Override
+    public Map<Long, List<String>> findCategoryNames(Collection<Long> keywordIds) {
+        QKeywordCategory keywordCategory = QKeywordCategory.keywordCategory;
+        QCategory category = QCategory.category;
+        Map<Long, List<String>> namesByKeywordId = new HashMap<>();
+        queryFactory
+                .select(keywordCategory.keyword.id, category.name)
+                .from(keywordCategory)
+                .join(keywordCategory.category, category)
+                .where(keywordCategory.keyword.id.in(keywordIds))
+                .orderBy(category.id.asc())
+                .fetch()
+                .forEach(row -> namesByKeywordId
+                        .computeIfAbsent(row.get(keywordCategory.keyword.id), id -> new ArrayList<>())
+                        .add(row.get(category.name)));
+        return namesByKeywordId;
+    }
+
+    /**
+     * 키워드별 상위 limit 개를 SQL 에서 자르지 않고(JPQL 에 윈도 함수가 없다) 연관도순으로 모두 읽은 뒤 앞에서 자른다.
+     * idx_relation_keyword_score 인덱스를 탄다.
+     */
+    @Override
+    public Map<Long, List<String>> findTopRelatedKeywordNames(Collection<Long> keywordIds, int limit) {
+        QKeywordRelation relation = QKeywordRelation.keywordRelation;
+        QKeyword related = new QKeyword("related");
+        Map<Long, List<String>> namesByKeywordId = new HashMap<>();
+        queryFactory
+                .select(relation.keyword.id, related.keywordName)
+                .from(relation)
+                .join(relation.relatedKeyword, related)
+                .where(relation.keyword.id.in(keywordIds))
+                .orderBy(relation.keyword.id.asc(), relation.relevanceScore.desc(), related.id.asc())
+                .fetch()
+                .forEach(row -> {
+                    List<String> names = namesByKeywordId
+                            .computeIfAbsent(row.get(relation.keyword.id), id -> new ArrayList<>());
+                    if (names.size() < limit) {
+                        names.add(row.get(related.keywordName));
+                    }
+                });
+        return namesByKeywordId;
+    }
+
+    @Override
+    public Map<Long, List<TrendIndexHistory>> findTrendHistories(Collection<Long> keywordIds, LocalDateTime from,
+                                                                 LocalDateTime to) {
+        QTrendIndexHistory history = QTrendIndexHistory.trendIndexHistory;
+        return queryFactory
+                .selectFrom(history)
+                .where(history.keyword.id.in(keywordIds), history.measuredAt.between(from, to))
+                .orderBy(history.measuredAt.asc())
+                .fetch()
+                .stream()
+                .collect(Collectors.groupingBy(point -> point.getKeyword().getId()));
     }
 
     /** 키워드마다 세 랭킹 유형의 최신 스냅샷 row 를 붙인다. 유형별로 키워드당 row 는 최대 하나다. */
