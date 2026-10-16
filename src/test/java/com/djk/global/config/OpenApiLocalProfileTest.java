@@ -40,6 +40,21 @@ class OpenApiLocalProfileTest {
     }
 
     @Test
+    @DisplayName("200 응답 스키마는 ApiResponse 래퍼와 추천 검색어 항목의 예시 값을 보여준다")
+    void documentsResponseSchemaWithWrapper() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(RECOMMENDED + ".responses['200'].content['*/*'].schema['$ref']")
+                        .value("#/components/schemas/ApiResponseRecommendedKeywordsResponse"))
+                .andExpect(jsonPath("$.components.schemas.ApiResponseRecommendedKeywordsResponse.properties.isSuccess.type")
+                        .value("boolean"))
+                .andExpect(jsonPath("$.components.schemas.RecommendedKeywordItem.properties.trendScore.example")
+                        .value(82.34))
+                .andExpect(jsonPath("$.components.schemas.RecommendedKeywordsResponse.properties.snapshotAt.example")
+                        .value("2026-07-24T09:00:00"));
+    }
+
+    @Test
     @DisplayName("local 프로파일에서는 Swagger UI 를 열 수 있다")
     void servesSwaggerUi() throws Exception {
         mockMvc.perform(get("/swagger-ui/index.html"))

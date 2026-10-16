@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,15 +32,11 @@ public class RecommendedKeywordController {
             summary = "메인 추천 검색어 조회",
             description = "TREND 랭킹 최신 스냅샷의 1위부터 limit 개를 내려준다. 스냅샷이 없으면 snapshotAt=null, keywords=[] 이다.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200", description = "조회 성공 (결과가 없어도 200)",
-            content = @Content(examples = @ExampleObject(value = """
-                    {"isSuccess": true, "message": "추천 검색어를 조회하였습니다.",
-                     "details": {"snapshotAt": "2026-07-24T09:00:00",
-                                 "keywords": [{"keywordId": 12, "keywordName": "마라탕", "trendScore": 82.34, "rankPosition": 1}]}}
-                    """)))
+            responseCode = "200", description = "조회 성공 (결과가 없어도 200). 응답 스키마와 예시는 반환 타입에서 생성된다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "400", description = "limit 이 1~100 밖이거나 숫자가 아님",
-            content = @Content(examples = @ExampleObject(value = """
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class),
+                    examples = @ExampleObject(value = """
                     {"isSuccess": false, "message": "잘못된 요청 파라미터입니다.", "details": null}
                     """)))
     @GetMapping("/recommended")
