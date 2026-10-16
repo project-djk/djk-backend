@@ -4,11 +4,13 @@ import static com.djk.domain.keyword.entity.QKeyword.keyword;
 
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchRow;
+import com.djk.domain.keyword.entity.QKeywordRelation;
 import com.djk.domain.ranking.dto.LatestSnapshotTimes;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
 import com.djk.domain.ranking.entity.RankingType;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.LocalDateTime;
@@ -63,9 +65,24 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
         return snapshot.keyword.eq(keyword).and(snapshot.rankingType.eq(rankingType)).and(atLatest);
     }
 
+    /** null 인 조건은 QueryDSL where 가 무시한다. */
     private Predicate[] searchConditions(KeywordSearchCondition condition) {
         return new Predicate[] {
-                trend.id.isNotNull().or(potential.id.isNotNull()).or(rising.id.isNotNull())
+                trend.id.isNotNull().or(potential.id.isNotNull()).or(rising.id.isNotNull()),
+                matchesQuery(condition.query())
         };
+    }
+
+    /** 이름에 검색어가 들어간 키워드, 또는 이름이 검색어와 같은 키워드의 연관어. 대소문자는 무시한다. */
+    private BooleanExpression matchesQuery(String query) {
+        if (query == null) {
+            return null;
+        }
+        QKeywordRelation relation = QKeywordRelation.keywordRelation;
+        return keyword.keywordName.containsIgnoreCase(query)
+                .or(keyword.id.in(JPAExpressions
+                        .select(relation.relatedKeyword.id)
+                        .from(relation)
+                        .where(relation.keyword.keywordName.equalsIgnoreCase(query))));
     }
 }

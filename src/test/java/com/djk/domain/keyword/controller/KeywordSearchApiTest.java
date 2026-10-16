@@ -114,6 +114,50 @@ class KeywordSearchApiTest {
                 .andExpect(jsonPath("$.details.items[1].keywordName").value("키워드2"));
     }
 
+    @Test
+    @DisplayName("q 는 앞뒤 공백을 무시하고, 이름에 q 가 들어간 키워드와 이름이 q 와 같은 키워드의 연관어를 찾는다")
+    void searchesByNameAndRelatedKeywordsOfExactMatch() throws Exception {
+        long malatang = insertKeyword("마라탕");
+        long malaxiangguo = insertKeyword("마라샹궈");
+        long hotpot = insertKeyword("훠궈");
+        long delivery = insertKeyword("배달");
+        long chicken = insertKeyword("치킨");
+        insertSnapshot(RankingType.TREND, malatang, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, malaxiangguo, 2, "0.8000", LATEST);
+        insertSnapshot(RankingType.TREND, hotpot, 3, "0.7000", LATEST);
+        insertSnapshot(RankingType.TREND, chicken, 4, "0.6000", LATEST);
+        insertRelation(malatang, hotpot, "0.9000");
+        insertRelation(malatang, delivery, "0.8000"); // 배달은 검색 대상(최신 스냅샷)이 아니다
+
+        mockMvc.perform(get(URL).param("q", "  마라탕 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("마라탕"))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("훠궈"));
+
+        mockMvc.perform(get(URL).param("q", "마라"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("마라탕"))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("마라샹궈"));
+    }
+
+    @Test
+    @DisplayName("q 는 대소문자를 구분하지 않고, 공백만 있으면 조건을 걸지 않는다")
+    void searchIgnoresCaseAndBlankQuery() throws Exception {
+        insertSnapshot(RankingType.TREND, insertKeyword("BTS"), 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, insertKeyword("뉴진스"), 2, "0.8000", LATEST);
+
+        mockMvc.perform(get(URL).param("q", "bts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("BTS"));
+
+        mockMvc.perform(get(URL).param("q", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(2));
+    }
+
     private long insertKeyword(String name) {
         return insertKeyword(name, LocalDateTime.of(2026, 7, 1, 0, 0));
     }
@@ -133,5 +177,11 @@ class KeywordSearchApiTest {
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM RANKING_SNAPSHOT WHERE ranking_type = ? AND keyword_id = ? AND snapshot_at = ?",
                 Long.class, rankingType.name(), keywordId, snapshotAt);
+    }
+
+    private void insertRelation(long keywordId, long relatedKeywordId, String relevance) {
+        jdbcTemplate.update(
+                "INSERT INTO KEYWORD_RELATION (keyword_id, related_keyword_id, relevance_score) VALUES (?, ?, ?)",
+                keywordId, relatedKeywordId, new BigDecimal(relevance));
     }
 }
