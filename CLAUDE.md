@@ -36,7 +36,16 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
 
 ### 코드
 
-- 패키지는 `com.djk.domain.<도메인>` 아래에 두고, 공통 코드는 `com.djk.global` 에 둔다. (초기 제안이며 팀이 바꿀 수 있다.)
+- 패키지는 기능(도메인)별로 나누고, 도메인 안은 계층별로 나눈다. 공통 코드는 `com.djk.global` 에 둔다.
+  ```text
+  com.djk.domain.<도메인>/
+  ├── controller/
+  ├── service/
+  ├── repository/
+  ├── entity/      # JPA 엔티티와 엔티티가 쓰는 ENUM
+  └── dto/         # 요청·응답 DTO, 계층 사이에 넘기는 조회 결과
+  ```
+  필요한 계층만 만든다. 빈 패키지는 두지 않는다. 테스트는 테스트 대상과 같은 패키지에 둔다.
 - 비밀번호, 토큰 등 비밀 값은 코드와 설정 파일에 넣지 않고 환경변수로 받는다.
 
 ## 작업 방식 (개발 파이프라인)

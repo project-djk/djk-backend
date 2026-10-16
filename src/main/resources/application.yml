@@ -12,10 +12,12 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: Asia/Seoul
+      # 테이블명이 대문자(KEYWORD 등)이고 Linux MySQL 은 대소문자를 구분하므로, 매핑에 적은 이름을 그대로 쓴다.
+      # 대신 엔티티의 테이블/컬럼명은 @Table / @Column 으로 모두 명시한다.
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    # hibernate.jdbc.time_zone 은 설정하지 않는다. DATETIME 은 KST 벽시계 값이고 LocalDateTime 으로 그대로 매핑한다.
+    # 설정하면 JVM 시간대가 KST 가 아닐 때(CI, Docker) 값이 9시간 어긋난다. (ADR-0002)
 
 server:
   port: 8080

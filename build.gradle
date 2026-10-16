@@ -19,6 +19,9 @@ configurations {
     }
 }
 
+// Boot 3.5.6 기본값(1.21.3)은 Docker Engine 29 의 최소 API 버전(1.40)을 맞추지 못해 컨테이너를 띄우지 못한다.
+ext['testcontainers.version'] = '1.21.4'
+
 repositories {
     mavenCentral()
 }
@@ -34,6 +37,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -43,4 +49,6 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // CI 러너·운영 컨테이너처럼 JVM 시간대가 KST 가 아니어도 시각이 어긋나지 않는지 로컬에서도 검증한다.
+    systemProperty 'user.timezone', 'UTC'
 }

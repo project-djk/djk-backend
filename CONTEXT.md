@@ -9,7 +9,9 @@
 | 키워드 | 서비스가 수집·추적하는 트렌드 후보 단어 | `KEYWORD` |
 | 트렌드 지수 | 키워드의 트렌드 강도. DB는 0~1, API는 0~100 | `trend_score` |
 | 집계(iteration) | 랭킹을 한 번 계산하는 배치. 현재 1일 1회 | `snapshot_at` |
-| 스냅샷 | 한 번의 집계 결과로 저장된 랭킹 row 묶음 | `RANKING_SNAPSHOT` |
+| 스냅샷 | 한 번의 집계 결과로 저장된 랭킹 row 묶음. 엔티티 `RankingSnapshot` 은 스냅샷 전체가 아니라 스냅샷의 row 하나다 | `RANKING_SNAPSHOT` |
+| 최신 스냅샷 | 한 랭킹 유형에서 `snapshot_at`이 가장 늦은 스냅샷. 집계는 통째로 저장되므로 항상 완결된 결과다 | `snapshot_at` |
+| 추천 검색어 | 메인 화면에 노출되는 키워드 목록. `TREND` 최신 스냅샷의 1위부터 순서대로 N개(기본 10)이며, 걸러내는 규칙은 없다 | `/keywords/recommended` |
 | 연관도 | 두 키워드가 얼마나 관련 있는지 (0~1) | `relevance_score` |
 
 ## 랭킹 유형 (`ranking_type`)
