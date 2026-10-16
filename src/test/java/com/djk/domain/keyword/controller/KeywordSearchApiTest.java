@@ -186,6 +186,40 @@ class KeywordSearchApiTest {
                 .andExpect(jsonPath("$.details").value(nullValue()));
     }
 
+    @Test
+    @DisplayName("badgeType 은 최신 스냅샷 row 의 뱃지로 거르고, 여러 개를 주면 하나라도 가진 키워드를 내려준다")
+    void filtersByAnyOfBadges() throws Exception {
+        long trendNew = insertKeyword("트렌드신규");
+        long risingBadge = insertKeyword("급상승뱃지");
+        long steady = insertKeyword("꾸준함");
+        long oldBadge = insertKeyword("어제뱃지");
+        insertBadge(insertSnapshot(RankingType.TREND, trendNew, 1, "0.9000", LATEST), "TREND_NEW");
+        insertBadge(insertSnapshot(RankingType.POTENTIAL, risingBadge, 1, "0.8000", LATEST), "RISING");
+        insertBadge(insertSnapshot(RankingType.RISING, steady, 1, "0.7000", LATEST), "STEADY");
+        insertSnapshot(RankingType.TREND, oldBadge, 2, "0.6000", LATEST);
+        insertBadge(insertSnapshot(RankingType.TREND, oldBadge, 1, "0.6000", PREVIOUS), "TREND_NEW");
+
+        mockMvc.perform(get(URL).param("badgeType", "TREND_NEW"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("트렌드신규"));
+
+        mockMvc.perform(get(URL).param("badgeType", "RISING,STEADY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(2))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("급상승뱃지"))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("꾸준함"));
+    }
+
+    @Test
+    @DisplayName("알 수 없는 badgeType 은 400 을 내려준다")
+    void rejectsUnknownBadgeType() throws Exception {
+        mockMvc.perform(get(URL).param("badgeType", "TREND_NEW,NOPE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.isSuccess").value(false))
+                .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
     private long insertKeyword(String name) {
         return insertKeyword(name, LocalDateTime.of(2026, 7, 1, 0, 0));
     }
@@ -220,5 +254,11 @@ class KeywordSearchApiTest {
 
     private void insertKeywordCategory(long keywordId, long categoryId) {
         jdbcTemplate.update("INSERT INTO KEYWORD_CATEGORY (keyword_id, category_id) VALUES (?, ?)", keywordId, categoryId);
+    }
+
+    private void insertBadge(long rankingSnapshotId, String badgeType) {
+        jdbcTemplate.update(
+                "INSERT INTO RANKING_SNAPSHOT_BADGE (ranking_snapshot_id, badge_type) VALUES (?, ?)",
+                rankingSnapshotId, badgeType);
     }
 }

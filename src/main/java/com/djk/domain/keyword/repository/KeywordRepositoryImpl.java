@@ -7,7 +7,9 @@ import com.djk.domain.keyword.dto.KeywordSearchRow;
 import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
 import com.djk.domain.ranking.dto.LatestSnapshotTimes;
+import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
+import com.djk.domain.ranking.entity.QRankingSnapshotBadge;
 import com.djk.domain.ranking.entity.RankingType;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -71,8 +73,24 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
         return new Predicate[] {
                 trend.id.isNotNull().or(potential.id.isNotNull()).or(rising.id.isNotNull()),
                 matchesQuery(condition.query()),
-                inCategory(condition.categoryId())
+                inCategory(condition.categoryId()),
+                hasAnyBadge(condition.badgeTypes())
         };
+    }
+
+    /** 최신 TREND·POTENTIAL·RISING 스냅샷 row 중 하나에 그 뱃지가 붙어 있다. */
+    private BooleanExpression hasAnyBadge(List<BadgeType> badgeTypes) {
+        if (badgeTypes.isEmpty()) {
+            return null;
+        }
+        QRankingSnapshotBadge badge = QRankingSnapshotBadge.rankingSnapshotBadge;
+        return JPAExpressions.selectOne()
+                .from(badge)
+                .where(badge.rankingSnapshot.eq(trend)
+                                .or(badge.rankingSnapshot.eq(potential))
+                                .or(badge.rankingSnapshot.eq(rising)),
+                        badge.badgeType.in(badgeTypes))
+                .exists();
     }
 
     private BooleanExpression inCategory(Long categoryId) {
