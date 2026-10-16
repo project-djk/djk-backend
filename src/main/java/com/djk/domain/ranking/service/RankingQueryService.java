@@ -6,7 +6,6 @@ import com.djk.domain.ranking.entity.RankingType;
 import com.djk.domain.ranking.repository.RankingSnapshotRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +20,7 @@ public class RankingQueryService {
     private final RankingSnapshotRepository rankingSnapshotRepository;
 
     public LatestRanking getLatestTop(RankingType rankingType, int limit) {
-        List<RankingSnapshot> rows = rankingSnapshotRepository.findLatestSnapshotRows(rankingType, Limit.of(limit));
+        List<RankingSnapshot> rows = rankingSnapshotRepository.findLatestSnapshotRows(rankingType, limit);
         if (rows.isEmpty()) {
             return LatestRanking.empty();
         }
