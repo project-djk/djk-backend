@@ -21,3 +21,10 @@ spring:
 
 server:
   port: 8080
+
+# Swagger UI 와 /v3/api-docs 는 기본으로 끈다. local·dev 프로파일에서만 켠다. (ADR-0004)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

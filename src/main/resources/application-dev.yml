@@ -1,0 +1,6 @@
+# Swagger UI(/swagger-ui/index.html)와 /v3/api-docs 를 켠다. 운영에서는 이 프로파일을 쓰지 않는다. (ADR-0004)
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
