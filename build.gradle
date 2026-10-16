@@ -32,6 +32,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
 
+    // OpenFeign 포크(ADR-0005). 7.x 는 Hibernate 7 기준이라 Boot 3.5(Hibernate 6.6)와 맞는 6.x 를 쓴다.
+    implementation 'io.github.openfeign.querydsl:querydsl-jpa:6.12'
+    annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:6.12:jpa'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     compileOnly 'org.projectlombok:lombok'

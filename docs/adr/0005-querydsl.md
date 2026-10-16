@@ -12,6 +12,7 @@
 
 1. **동적 조회는 QueryDSL로 작성한다.** 기존 JPQL `@Query`(최신 스냅샷 조회)도 QueryDSL로 옮겨, 조회 코드의 작성 방식을 하나로 맞춘다.
 2. **배포판은 OpenFeign 포크(`io.github.openfeign.querydsl`의 `querydsl-jpa`, `querydsl-apt`, jakarta)를 쓴다.** 원조 `com.querydsl` 5.x는 유지보수가 거의 멈췄고, `orderBy` SQL 인젝션 취약점(CVE-2024-49203)이 남아 있다.
+   버전은 6.x(현재 6.12)다. 7.x는 Hibernate 7 / JPA 3.2 기준이라 Spring Boot 3.5(Hibernate 6.6)와 맞지 않는다. Boot 4로 올릴 때 7.x로 함께 올린다.
 3. **Q 클래스는 빌드 산출물(`build/generated`)이고 커밋하지 않는다.**
 
 ## 검토한 대안
