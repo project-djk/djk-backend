@@ -28,4 +28,10 @@ public class GlobalExceptionHandler {
         log.debug("잘못된 요청 파라미터: {}", e.getMessage());
         return ApiResponse.fail(INVALID_PARAMETER);
     }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotFound(ResourceNotFoundException e) {
+        return ApiResponse.fail(e.getMessage());
+    }
 }

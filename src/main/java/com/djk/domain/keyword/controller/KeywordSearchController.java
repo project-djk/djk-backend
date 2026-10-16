@@ -22,9 +22,10 @@ public class KeywordSearchController {
     @GetMapping("/search")
     public ApiResponse<KeywordSearchResponse> search(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        KeywordSearchCondition condition = new KeywordSearchCondition(q, page, size);
+        KeywordSearchCondition condition = new KeywordSearchCondition(q, categoryId, page, size);
         return ApiResponse.success("검색 결과를 조회하였습니다.",
                 KeywordSearchResponse.from(keywordSearchService.search(condition)));
     }

@@ -4,6 +4,7 @@ import static com.djk.domain.keyword.entity.QKeyword.keyword;
 
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchRow;
+import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
 import com.djk.domain.ranking.dto.LatestSnapshotTimes;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
@@ -69,8 +70,20 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
     private Predicate[] searchConditions(KeywordSearchCondition condition) {
         return new Predicate[] {
                 trend.id.isNotNull().or(potential.id.isNotNull()).or(rising.id.isNotNull()),
-                matchesQuery(condition.query())
+                matchesQuery(condition.query()),
+                inCategory(condition.categoryId())
         };
+    }
+
+    private BooleanExpression inCategory(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        QKeywordCategory keywordCategory = QKeywordCategory.keywordCategory;
+        return keyword.id.in(JPAExpressions
+                .select(keywordCategory.keyword.id)
+                .from(keywordCategory)
+                .where(keywordCategory.category.id.eq(categoryId)));
     }
 
     /** 이름에 검색어가 들어간 키워드, 또는 이름이 검색어와 같은 키워드의 연관어. 대소문자는 무시한다. */

@@ -158,6 +158,34 @@ class KeywordSearchApiTest {
                 .andExpect(jsonPath("$.details.totalElements").value(2));
     }
 
+    @Test
+    @DisplayName("categoryId 를 주면 그 카테고리에 속한 키워드만 내려준다")
+    void filtersByCategory() throws Exception {
+        long food = insertCategory("음식");
+        long fashion = insertCategory("패션");
+        long malatang = insertKeyword("마라탕");
+        long jacket = insertKeyword("바람막이");
+        insertSnapshot(RankingType.TREND, malatang, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, jacket, 2, "0.8000", LATEST);
+        insertKeywordCategory(malatang, food);
+        insertKeywordCategory(jacket, fashion);
+
+        mockMvc.perform(get(URL).param("categoryId", String.valueOf(food)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.totalElements").value(1))
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("마라탕"));
+    }
+
+    @Test
+    @DisplayName("없는 categoryId 를 주면 404 를 내려준다")
+    void returns404ForUnknownCategory() throws Exception {
+        mockMvc.perform(get(URL).param("categoryId", "999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.isSuccess").value(false))
+                .andExpect(jsonPath("$.message").value("해당 카테고리를 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.details").value(nullValue()));
+    }
+
     private long insertKeyword(String name) {
         return insertKeyword(name, LocalDateTime.of(2026, 7, 1, 0, 0));
     }
@@ -183,5 +211,14 @@ class KeywordSearchApiTest {
         jdbcTemplate.update(
                 "INSERT INTO KEYWORD_RELATION (keyword_id, related_keyword_id, relevance_score) VALUES (?, ?, ?)",
                 keywordId, relatedKeywordId, new BigDecimal(relevance));
+    }
+
+    private long insertCategory(String name) {
+        jdbcTemplate.update("INSERT INTO CATEGORY (name) VALUES (?)", name);
+        return jdbcTemplate.queryForObject("SELECT id FROM CATEGORY WHERE name = ?", Long.class, name);
+    }
+
+    private void insertKeywordCategory(long keywordId, long categoryId) {
+        jdbcTemplate.update("INSERT INTO KEYWORD_CATEGORY (keyword_id, category_id) VALUES (?, ?)", keywordId, categoryId);
     }
 }
