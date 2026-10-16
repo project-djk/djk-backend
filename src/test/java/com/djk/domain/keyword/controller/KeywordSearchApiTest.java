@@ -1,5 +1,6 @@
 package com.djk.domain.keyword.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -7,8 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.djk.domain.ranking.entity.RankingType;
 import com.djk.support.MySqlTestContainer;
+import jakarta.persistence.EntityManagerFactory;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @AutoConfigureMockMvc
@@ -36,6 +41,9 @@ class KeywordSearchApiTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @BeforeEach
     void cleanUp() {
@@ -408,6 +416,90 @@ class KeywordSearchApiTest {
         mockMvc.perform(get(URL).param("period", period))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
+    @Test
+    @DisplayName("sort=POTENTIAL 은 Potential 점수순, 점수가 없으면 맨 뒤, 동점이면 keywordId 순이다")
+    void sortsByPotentialScore() throws Exception {
+        long low = insertKeyword("낮음");
+        long high = insertKeyword("높음");
+        long none = insertKeyword("없음");
+        long tie = insertKeyword("동점");
+        insertSnapshot(RankingType.POTENTIAL, low, 3, "0.3000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, high, 1, "0.7000", LATEST);
+        insertSnapshot(RankingType.TREND, none, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, tie, 2, "0.7000", LATEST);
+
+        mockMvc.perform(get(URL).param("sort", "POTENTIAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].keywordId").value(high))
+                .andExpect(jsonPath("$.details.items[1].keywordId").value(tie))
+                .andExpect(jsonPath("$.details.items[2].keywordId").value(low))
+                .andExpect(jsonPath("$.details.items[3].keywordId").value(none));
+    }
+
+    @Test
+    @DisplayName("sort=LATEST 는 최초 수집 일시가 최근인 순, 동점이면 keywordId 순이다")
+    void sortsByFirstCollectedAt() throws Exception {
+        long oldest = insertKeyword("가장오래됨", LocalDateTime.of(2026, 7, 1, 0, 0));
+        long newest = insertKeyword("가장최근", LocalDateTime.of(2026, 7, 10, 0, 0));
+        long middle = insertKeyword("중간", LocalDateTime.of(2026, 7, 5, 0, 0));
+        long tie = insertKeyword("최근동점", LocalDateTime.of(2026, 7, 10, 0, 0));
+        insertSnapshot(RankingType.TREND, oldest, 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.TREND, newest, 2, "0.8000", LATEST);
+        insertSnapshot(RankingType.TREND, middle, 3, "0.7000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, tie, 1, "0.6000", LATEST);
+
+        mockMvc.perform(get(URL).param("sort", "LATEST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].keywordId").value(newest))
+                .andExpect(jsonPath("$.details.items[1].keywordId").value(tie))
+                .andExpect(jsonPath("$.details.items[2].keywordId").value(middle))
+                .andExpect(jsonPath("$.details.items[3].keywordId").value(oldest));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"sort,NAME", "sort,trend", "page,-1", "size,0", "size,101", "size,abc"})
+    @DisplayName("sort 가 TREND / POTENTIAL / LATEST 가 아니거나 page·size 가 범위 밖이면 400 을 내려준다")
+    void rejectsInvalidSortAndPaging(String name, String value) throws Exception {
+        mockMvc.perform(get(URL).param(name, value))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("잘못된 요청 파라미터입니다."));
+    }
+
+    @Test
+    @DisplayName("size 의 경계값 1 과 100 은 허용한다")
+    void acceptsBoundarySize() throws Exception {
+        mockMvc.perform(get(URL).param("size", "1")).andExpect(status().isOk());
+        mockMvc.perform(get(URL).param("size", "100")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("결과 항목 수가 달라도 SQL 실행 수는 같다 (N+1 없음)")
+    void issuesSameNumberOfQueriesRegardlessOfPageSize() throws Exception {
+        long food = insertCategory("음식");
+        for (int i = 1; i <= 6; i++) {
+            long keywordId = insertKeyword("키워드" + i);
+            insertSnapshot(RankingType.TREND, keywordId, i, "0.5000", PREVIOUS);
+            insertBadge(insertSnapshot(RankingType.TREND, keywordId, i, "0.5000", LATEST), "STEADY");
+            insertBadge(insertSnapshot(RankingType.POTENTIAL, keywordId, i, "0.5000", LATEST), "POTENTIAL_NEW");
+            insertSnapshot(RankingType.POTENTIAL, keywordId, i, "0.5000", PREVIOUS);
+            insertKeywordCategory(keywordId, food);
+            insertHistory(keywordId, LATEST, "0.5000");
+            insertRelation(keywordId, insertKeyword("연관어" + i), "0.5000");
+        }
+
+        long oneItem = countStatements(get(URL).param("size", "1"));
+        long sixItems = countStatements(get(URL).param("size", "6"));
+
+        assertThat(sixItems).isEqualTo(oneItem);
+    }
+
+    private long countStatements(MockHttpServletRequestBuilder request) throws Exception {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.clear();
+        mockMvc.perform(request).andExpect(status().isOk());
+        return statistics.getPrepareStatementCount();
     }
 
     private long insertKeyword(String name) {

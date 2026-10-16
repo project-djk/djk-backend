@@ -4,6 +4,7 @@ import static com.djk.domain.keyword.entity.QKeyword.keyword;
 
 import com.djk.domain.keyword.dto.KeywordSearchCondition;
 import com.djk.domain.keyword.dto.KeywordSearchRow;
+import com.djk.domain.keyword.dto.KeywordSearchSort;
 import com.djk.domain.keyword.dto.ScoreRange;
 import com.djk.domain.category.entity.QCategory;
 import com.djk.domain.keyword.entity.QKeyword;
@@ -16,6 +17,7 @@ import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
 import com.djk.domain.ranking.entity.QRankingSnapshotBadge;
 import com.djk.domain.ranking.entity.RankingType;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -43,7 +45,7 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
     public List<KeywordSearchRow> search(KeywordSearchCondition condition, SnapshotTimes latest) {
         return joinLatestSnapshots(queryFactory.select(keyword, trend, potential, rising), latest)
                 .where(searchConditions(condition))
-                .orderBy(trend.trendScore.desc().nullsLast(), keyword.id.asc())
+                .orderBy(orderBy(condition.sort()), keyword.id.asc())
                 .offset(condition.offset())
                 .limit(condition.size())
                 .fetch()
@@ -134,6 +136,15 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
                 ? snapshot.snapshotAt.isNull()
                 : snapshot.snapshotAt.eq(snapshotAt);
         return snapshot.keyword.eq(keyword).and(snapshot.rankingType.eq(rankingType)).and(atLatest);
+    }
+
+    /** 정렬 기준은 enum 으로만 고른다. 사용자 입력 문자열을 orderBy 에 넣지 않는다 (ADR-0005). */
+    private OrderSpecifier<?> orderBy(KeywordSearchSort sort) {
+        return switch (sort) {
+            case TREND -> trend.trendScore.desc().nullsLast();
+            case POTENTIAL -> potential.trendScore.desc().nullsLast();
+            case LATEST -> keyword.firstCollectedAt.desc();
+        };
     }
 
     /** null 인 조건은 QueryDSL where 가 무시한다. */

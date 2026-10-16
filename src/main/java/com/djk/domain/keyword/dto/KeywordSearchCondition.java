@@ -13,6 +13,7 @@ import java.util.List;
  * @param trendRange 최신 TREND 스냅샷의 트렌드 지수 범위
  * @param potentialRange 최신 POTENTIAL 스냅샷의 Potential 점수 범위
  * @param risingOnly 최신 RISING 스냅샷에 든 키워드만
+ * @param sort       정렬 기준
  */
 public record KeywordSearchCondition(
         String query,
@@ -22,6 +23,7 @@ public record KeywordSearchCondition(
         ScoreRange trendRange,
         ScoreRange potentialRange,
         boolean risingOnly,
+        KeywordSearchSort sort,
         int page,
         int size) {
 
