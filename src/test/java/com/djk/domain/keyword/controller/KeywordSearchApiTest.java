@@ -292,6 +292,51 @@ class KeywordSearchApiTest {
                 .andExpect(jsonPath("$.details.items[0].keywordName").value("라이징랭킹"));
     }
 
+    @Test
+    @DisplayName("rankChange 는 직전 스냅샷 순위 - 현재 순위이고, 직전 스냅샷에 없었으면 null 이다")
+    void computesRankChangeAgainstPreviousSnapshot() throws Exception {
+        long climber = insertKeyword("상승하락");
+        long newcomer = insertKeyword("신규");
+        insertSnapshot(RankingType.TREND, climber, 7, "0.5000", PREVIOUS);
+        insertSnapshot(RankingType.TREND, climber, 5, "0.6000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, climber, 1, "0.5000", PREVIOUS.minusDays(1)); // 직전이 아닌 더 이전
+        insertSnapshot(RankingType.POTENTIAL, newcomer, 9, "0.5000", PREVIOUS);
+        insertSnapshot(RankingType.POTENTIAL, climber, 1, "0.5000", PREVIOUS);
+        insertSnapshot(RankingType.POTENTIAL, climber, 3, "0.4000", LATEST);
+        insertSnapshot(RankingType.TREND, newcomer, 1, "0.9000", LATEST);
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].keywordName").value("신규"))
+                .andExpect(jsonPath("$.details.items[0].trend.rankChange").value(nullValue()))
+                .andExpect(jsonPath("$.details.items[1].keywordName").value("상승하락"))
+                .andExpect(jsonPath("$.details.items[1].trend.rankChange").value(2))
+                .andExpect(jsonPath("$.details.items[1].potential.rankChange").value(-2));
+    }
+
+    @Test
+    @DisplayName("badges 는 최신 TREND·POTENTIAL·RISING 스냅샷 row 의 뱃지를 중복 없이 합친 것이다")
+    void mergesBadgesOfLatestSnapshotRows() throws Exception {
+        long badged = insertKeyword("뱃지많음");
+        long plain = insertKeyword("뱃지없음");
+        long trendRow = insertSnapshot(RankingType.TREND, badged, 1, "0.9000", LATEST);
+        long potentialRow = insertSnapshot(RankingType.POTENTIAL, badged, 1, "0.9000", LATEST);
+        long risingRow = insertSnapshot(RankingType.RISING, badged, 1, "0.9000", LATEST);
+        insertBadge(trendRow, "TREND_NEW");
+        insertBadge(potentialRow, "POTENTIAL_NEW");
+        insertBadge(risingRow, "RISING");
+        insertBadge(insertSnapshot(RankingType.TREND, badged, 1, "0.9000", PREVIOUS), "STEADY");
+        insertSnapshot(RankingType.TREND, plain, 2, "0.8000", LATEST);
+
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.items[0].badges.length()").value(3))
+                .andExpect(jsonPath("$.details.items[0].badges[0]").value("TREND_NEW"))
+                .andExpect(jsonPath("$.details.items[0].badges[1]").value("POTENTIAL_NEW"))
+                .andExpect(jsonPath("$.details.items[0].badges[2]").value("RISING"))
+                .andExpect(jsonPath("$.details.items[1].badges").isEmpty());
+    }
+
     private long insertKeyword(String name) {
         return insertKeyword(name, LocalDateTime.of(2026, 7, 1, 0, 0));
     }

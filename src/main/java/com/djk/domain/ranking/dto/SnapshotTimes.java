@@ -5,11 +5,11 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 랭킹 유형별 최신 스냅샷의 snapshot_at. 스냅샷이 없는 유형은 값이 없다.
+ * 랭킹 유형별 스냅샷 하나의 snapshot_at (예: 유형별 최신 스냅샷). 스냅샷이 없는 유형은 값이 없다.
  */
-public record LatestSnapshotTimes(Map<RankingType, LocalDateTime> byType) {
+public record SnapshotTimes(Map<RankingType, LocalDateTime> byType) {
 
-    public LatestSnapshotTimes {
+    public SnapshotTimes {
         byType = Map.copyOf(byType);
     }
 

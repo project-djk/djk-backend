@@ -7,7 +7,7 @@ import com.djk.domain.keyword.dto.KeywordSearchRow;
 import com.djk.domain.keyword.dto.ScoreRange;
 import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
-import com.djk.domain.ranking.dto.LatestSnapshotTimes;
+import com.djk.domain.ranking.dto.SnapshotTimes;
 import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.domain.ranking.entity.QRankingSnapshot;
 import com.djk.domain.ranking.entity.QRankingSnapshotBadge;
@@ -31,20 +31,21 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<KeywordSearchRow> search(KeywordSearchCondition condition, LatestSnapshotTimes latest) {
-        return joinLatestSnapshots(queryFactory.select(keyword, trend, potential), latest)
+    public List<KeywordSearchRow> search(KeywordSearchCondition condition, SnapshotTimes latest) {
+        return joinLatestSnapshots(queryFactory.select(keyword, trend, potential, rising), latest)
                 .where(searchConditions(condition))
                 .orderBy(trend.trendScore.desc().nullsLast(), keyword.id.asc())
                 .offset(condition.offset())
                 .limit(condition.size())
                 .fetch()
                 .stream()
-                .map(row -> new KeywordSearchRow(row.get(keyword), row.get(trend), row.get(potential)))
+                .map(row -> new KeywordSearchRow(
+                        row.get(keyword), row.get(trend), row.get(potential), row.get(rising)))
                 .toList();
     }
 
     @Override
-    public long countSearch(KeywordSearchCondition condition, LatestSnapshotTimes latest) {
+    public long countSearch(KeywordSearchCondition condition, SnapshotTimes latest) {
         Long count = joinLatestSnapshots(queryFactory.select(keyword.count()), latest)
                 .where(searchConditions(condition))
                 .fetchOne();
@@ -52,7 +53,7 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
     }
 
     /** 키워드마다 세 랭킹 유형의 최신 스냅샷 row 를 붙인다. 유형별로 키워드당 row 는 최대 하나다. */
-    private <T> JPAQuery<T> joinLatestSnapshots(JPAQuery<T> query, LatestSnapshotTimes latest) {
+    private <T> JPAQuery<T> joinLatestSnapshots(JPAQuery<T> query, SnapshotTimes latest) {
         return query.from(keyword)
                 .leftJoin(trend).on(isLatestRow(trend, RankingType.TREND, latest))
                 .leftJoin(potential).on(isLatestRow(potential, RankingType.POTENTIAL, latest))
@@ -60,7 +61,7 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
     }
 
     private BooleanExpression isLatestRow(QRankingSnapshot snapshot, RankingType rankingType,
-                                          LatestSnapshotTimes latest) {
+                                          SnapshotTimes latest) {
         LocalDateTime snapshotAt = latest.of(rankingType);
         // 그 유형의 스냅샷이 없으면 snapshot_at(NOT NULL) IS NULL 로 아무 row 도 붙지 않게 한다.
         BooleanExpression atLatest = snapshotAt == null

@@ -1,6 +1,6 @@
 package com.djk.domain.keyword.dto;
 
-import com.djk.domain.ranking.entity.RankingSnapshot;
+import com.djk.domain.ranking.entity.BadgeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,35 +20,46 @@ public record KeywordSearchResponse(
     public record Item(
             @Schema(example = "12") Long keywordId,
             @Schema(example = "마라탕") String keywordName,
+            @Schema(description = "최신 TREND·POTENTIAL·RISING 스냅샷 row 에 붙은 뱃지 (중복 없음)", example = "[\"TREND_NEW\"]")
+            List<BadgeType> badges,
             @Schema(description = "최신 TREND 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Trend trend,
             @Schema(description = "최신 POTENTIAL 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Potential potential) {
 
-        static Item from(KeywordSearchRow row) {
+        static Item from(KeywordSearchHit hit) {
             return new Item(
-                    row.keyword().getId(),
-                    row.keyword().getKeywordName(),
-                    row.trend() == null ? null : Trend.from(row.trend()),
-                    row.potential() == null ? null : Potential.from(row.potential()));
+                    hit.keyword().getId(),
+                    hit.keyword().getKeywordName(),
+                    hit.badges(),
+                    hit.trend() == null ? null : Trend.from(hit.trend()),
+                    hit.potential() == null ? null : Potential.from(hit.potential()));
         }
     }
 
     @Schema(name = "KeywordSearchTrend")
     public record Trend(
             @Schema(example = "5") int rankPosition,
+            @Schema(description = "직전 스냅샷 순위 - 현재 순위. 양수가 상승. 직전 스냅샷에 없었으면 null",
+                    example = "2", nullable = true)
+            Integer rankChange,
             @Schema(description = "트렌드 지수 (0~100, 반올림하지 않음)", example = "82.34") BigDecimal trendScore) {
 
-        static Trend from(RankingSnapshot snapshot) {
-            return new Trend(snapshot.getRankPosition(), toScore100(snapshot.getTrendScore()));
+        static Trend from(RankEntry entry) {
+            return new Trend(entry.snapshot().getRankPosition(), entry.rankChange(),
+                    toScore100(entry.snapshot().getTrendScore()));
         }
     }
 
     @Schema(name = "KeywordSearchPotential")
     public record Potential(
             @Schema(example = "9") int rankPosition,
+            @Schema(description = "직전 스냅샷 순위 - 현재 순위. 양수가 상승. 직전 스냅샷에 없었으면 null",
+                    example = "-1", nullable = true)
+            Integer rankChange,
             @Schema(description = "Potential 점수 (0~100, 반올림하지 않음)", example = "61.00") BigDecimal score) {
 
-        static Potential from(RankingSnapshot snapshot) {
-            return new Potential(snapshot.getRankPosition(), toScore100(snapshot.getTrendScore()));
+        static Potential from(RankEntry entry) {
+            return new Potential(entry.snapshot().getRankPosition(), entry.rankChange(),
+                    toScore100(entry.snapshot().getTrendScore()));
         }
     }
 
@@ -59,7 +70,7 @@ public record KeywordSearchResponse(
                 result.size(),
                 result.totalElements(),
                 result.totalPages(),
-                result.rows().stream().map(Item::from).toList());
+                result.hits().stream().map(Item::from).toList());
     }
 
     /** 0~1 → 0~100. 이 API 의 점수 환산은 여기 한 곳에서만 한다. */
