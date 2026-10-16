@@ -1,5 +1,5 @@
 ---
-description: 전체 빌드를 검증한 뒤 이슈에 연결된 PR을 생성하고, 노션 명세의 Status를 "개발 완료"로 바꾼다
+description: 전체 빌드를 검증한 뒤 이슈에 연결된 PR을 생성하고, 노션 명세의 Status를 "개발 완료"로 바꾸고, Auto-fix를 켠다
 allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git log:*), Bash(git push:*), Bash(git diff:*), Bash(gh issue view:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(./gradlew:*)
 ---
 
@@ -28,4 +28,8 @@ allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git log:*), Bash(git
      - 현재 값이 `개발 중`이면 `개발 완료`로 바꾼다.
      - 그 밖의 값(`개발 완료`, `연동 완료` 등)이면 바꾸지 않고 현재 값을 알린다.
    - 링크가 없거나, 노션 도구가 없거나, 실패하면 이 단계를 건너뛰고 이유를 한 줄로 알린다.
-7. PR 주소를 알리고, 노션 Status 변경 결과와 다음 단계(CodeRabbit·CI 결과 확인 → 사람 리뷰)를 안내한다.
+7. Auto-fix를 켠다. CI 실패·머지 충돌·리뷰 코멘트가 생기면 앱이 이 세션을 깨워 고치게 하는 Claude 데스크톱 앱 기능이다. 이 단계가 실패해도 PR과 노션 Status 변경은 되돌리지 않는다.
+   - 앱의 PR 도구(`ccd_pr`의 `get_status`, `bind_pr`, `set_monitor`)가 있으면, `get_status`로 5번에서 만든 PR이 이 세션에 연결됐는지 확인한다. 연결되지 않았으면 `bind_pr`로 PR 주소를 연결한다.
+   - `set_monitor`로 그 PR의 Auto-fix를 켠다 (`auto_fix: true`, `address_comments: true`).
+   - 도구가 없는 환경(터미널 CLI 등)이거나 실패하면 이 단계를 건너뛰고 이유를 한 줄로 알린다.
+8. PR 주소를 알리고, 노션 Status 변경 결과, Auto-fix 결과(켰음 / 건너뜀과 이유), 다음 단계(CodeRabbit·CI 결과 확인 → 사람 리뷰)를 안내한다.
