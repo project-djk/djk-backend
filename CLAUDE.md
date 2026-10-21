@@ -75,7 +75,7 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
   → to-spec           GitHub Issue 생성             (스킬)
   → /start-work {이슈번호}   이슈 연결 브랜치 생성·체크아웃   (커맨드)
   → /implement        seam 별로 tdd 루프 반복, 끝나면 code-review 로 인계   (스킬)
-  → /ship             전체 빌드 검증 → PR 생성 (Closes #이슈번호)  (커맨드)
+  → /ship             전체 빌드 검증 → PR 생성 (Closes #이슈번호) → Auto-fix 켜기  (커맨드)
   → CodeRabbit 리뷰 + CI → 사람 리뷰 → approve → merge(develop)
 ```
 
@@ -95,4 +95,4 @@ docker compose up -d   # 로컬 MySQL (docs/schema.sql 자동 적용)
 | `to-spec` | 스킬 | 정렬한 내용을 GitHub Issue로 고정할 때 |
 | `/start-work` | 커맨드 | 이슈 발행 직후, 작업용 브랜치가 필요할 때 |
 | `/implement` | 스킬 | 실제 구현. seam 판단 → tdd 루프 → code-review 인계까지 안에서 처리 |
-| `/ship` | 커맨드 | 구현이 끝나 PR을 올릴 때 |
+| `/ship` | 커맨드 | 구현이 끝나 PR을 올릴 때. 데스크톱 앱에서는 Auto-fix도 켠다 |
