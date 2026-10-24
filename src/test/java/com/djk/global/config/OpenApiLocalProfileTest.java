@@ -22,6 +22,7 @@ class OpenApiLocalProfileTest {
 
     private static final String RECOMMENDED = "$.paths['/api/v1/keywords/recommended'].get";
     private static final String SEARCH = "$.paths['/api/v1/keywords/search'].get";
+    private static final String DETAIL = "$.paths['/api/v1/keywords/{keywordId}'].get";
 
     @Autowired
     private MockMvc mockMvc;
@@ -71,6 +72,29 @@ class OpenApiLocalProfileTest {
                         .value("#/components/schemas/ApiResponseKeywordSearchResponse"))
                 .andExpect(jsonPath("$.components.schemas.KeywordSearchTrend.properties.trendScore.example")
                         .value(82.34));
+    }
+
+    @Test
+    @DisplayName("키워드 상세 조회 API 는 200 응답 스키마(ApiResponse 래퍼와 예시), keywordId 제약, 에러 응답을 문서에 보여준다")
+    void documentsKeywordDetailApi() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(DETAIL + ".summary").value("키워드 상세 조회"))
+                .andExpect(jsonPath(DETAIL + ".parameters[0].name").value("keywordId"))
+                .andExpect(jsonPath(DETAIL + ".parameters[0].in").value("path"))
+                .andExpect(jsonPath(DETAIL + ".parameters[0].schema.minimum").value(1))
+                .andExpect(jsonPath(DETAIL + ".responses['400']").exists())
+                .andExpect(jsonPath(DETAIL + ".responses['404']").exists())
+                .andExpect(jsonPath(DETAIL + ".responses['200'].content['*/*'].schema['$ref']")
+                        .value("#/components/schemas/ApiResponseKeywordDetailResponse"))
+                .andExpect(jsonPath("$.components.schemas.ApiResponseKeywordDetailResponse.properties.details['$ref']")
+                        .value("#/components/schemas/KeywordDetailResponse"))
+                .andExpect(jsonPath("$.components.schemas.KeywordDetailResponse.properties.searchScore.example")
+                        .value(96.0))
+                .andExpect(jsonPath("$.components.schemas.KeywordDetailRank.properties.rankChange.example")
+                        .value(17))
+                .andExpect(jsonPath("$.components.schemas.KeywordDetailTopRelation.properties.relevanceScore.example")
+                        .value(98.0));
     }
 
     @Test
