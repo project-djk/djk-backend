@@ -22,7 +22,7 @@ public record KeywordDetailResponse(
         BigDecimal searchScoreChange,
         @Schema(description = "최신 TREND 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Rank trend,
         @Schema(description = "최신 POTENTIAL 스냅샷에서의 순위. 순위권 밖이면 null", nullable = true) Rank potential,
-        @Schema(description = "연관도가 가장 높은 연관어. 동점이면 먼저 등록된 키워드. 연관어가 없으면 null", nullable = true)
+        @Schema(description = "연관도가 가장 높은 연관어. 동점이면 연관 키워드 id 가 작은 쪽. 연관어가 없으면 null", nullable = true)
         TopRelation topRelation,
         @Schema(description = "어느 집계의 결과인지. 최신 TREND 스냅샷 기준 (KST, 오프셋 없음). 스냅샷이 없으면 null",
                 example = "2026-07-24T09:00:00", nullable = true)
