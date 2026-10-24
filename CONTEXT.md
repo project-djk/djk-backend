@@ -15,6 +15,7 @@
 | 연관도 | 두 키워드가 얼마나 관련 있는지 (0~1) | `relevance_score` |
 | Potential 점수 | `POTENTIAL` 스냅샷 row에 기록된 트렌드 지수. 스케일은 트렌드 지수와 같다 | `potential.score` |
 | 순위 변화 | 같은 랭킹 유형의 직전 스냅샷 순위 − 현재 순위. 양수가 상승이다. 직전 스냅샷에 없었으면 값이 없다 | `rankChange` |
+| 검색 지수 | 키워드 상세 조회의 `searchScore`. 최신 `TREND` 스냅샷 row의 트렌드 지수이며, TREND 랭킹 밖이면 값이 없다. 변화량(`searchScoreChange`)은 직전 `TREND` 스냅샷 대비 지수 차이다 | `/keywords/{keywordId}` |
 | 검색 대상 키워드 | 최신 `TREND`·`POTENTIAL`·`RISING` 스냅샷 중 하나 이상에 든 키워드. 상세 검색은 이 안에서만 찾는다 | `/keywords/search` |
 
 ## 랭킹 유형 (`ranking_type`)
