@@ -25,6 +25,9 @@ public interface RankingSnapshotRepositoryCustom {
     /** 한 스냅샷(유형 + snapshot_at)에서 키워드별 순위. 그 스냅샷에 없는 키워드는 키가 없다. */
     Map<Long, Integer> findRankPositions(RankingType rankingType, LocalDateTime snapshotAt, Collection<Long> keywordIds);
 
+    /** 한 스냅샷(유형 + snapshot_at)에서 그 키워드의 row. 없으면 null. */
+    RankingSnapshot findSnapshotRow(RankingType rankingType, LocalDateTime snapshotAt, long keywordId);
+
     /** 스냅샷 row 들에 붙은 뱃지를 키워드별로 중복 없이 모은다. 뱃지가 없는 키워드는 키가 없다. */
     Map<Long, Set<BadgeType>> findBadgeTypesBySnapshotIds(Collection<Long> rankingSnapshotIds);
 }

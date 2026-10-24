@@ -83,6 +83,16 @@ class RankingSnapshotRepositoryImpl implements RankingSnapshotRepositoryCustom {
     }
 
     @Override
+    public RankingSnapshot findSnapshotRow(RankingType rankingType, LocalDateTime snapshotAt, long keywordId) {
+        return queryFactory
+                .selectFrom(rankingSnapshot)
+                .where(rankingSnapshot.rankingType.eq(rankingType),
+                        rankingSnapshot.snapshotAt.eq(snapshotAt),
+                        rankingSnapshot.keyword.id.eq(keywordId))
+                .fetchOne();
+    }
+
+    @Override
     public Map<Long, Set<BadgeType>> findBadgeTypesBySnapshotIds(Collection<Long> rankingSnapshotIds) {
         QRankingSnapshotBadge badge = QRankingSnapshotBadge.rankingSnapshotBadge;
         Map<Long, Set<BadgeType>> badgesByKeywordId = new HashMap<>();
