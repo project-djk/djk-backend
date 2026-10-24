@@ -5,7 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.djk.domain.ranking.entity.RankingType;
 import com.djk.support.MySqlTestContainer;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +27,9 @@ import org.springframework.test.web.servlet.MockMvc;
 class KeywordDetailApiTest {
 
     private static final String URL = "/api/v1/keywords/{keywordId}";
+    private static final LocalDateTime LATEST = LocalDateTime.of(2026, 7, 24, 9, 0);
+    private static final LocalDateTime PREVIOUS = LATEST.minusDays(1);
+    private static final LocalDateTime OLDER = LATEST.minusDays(2);
 
     @Autowired
     private MockMvc mockMvc;
@@ -66,6 +71,62 @@ class KeywordDetailApiTest {
     }
 
     @Test
+    @DisplayName("최신 TREND·POTENTIAL 스냅샷의 순위와 직전 스냅샷 대비 순위 변화, 검색 지수와 그 변화량을 내려준다")
+    void returnsRanksAndSearchScoreComparedWithPreviousSnapshot() throws Exception {
+        long keywordId = insertKeyword("두바이 초콜릿");
+        insertSnapshot(RankingType.TREND, keywordId, 50, "0.1000", OLDER);
+        insertSnapshot(RankingType.TREND, keywordId, 40, "0.2000", PREVIOUS);
+        insertSnapshot(RankingType.TREND, keywordId, 23, "0.9600", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, keywordId, 78, "0.3000", PREVIOUS);
+        insertSnapshot(RankingType.POTENTIAL, keywordId, 81, "0.2900", LATEST);
+
+        mockMvc.perform(get(URL, keywordId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.searchScore").value(96.0))
+                .andExpect(jsonPath("$.details.searchScoreChange").value(76.0))
+                .andExpect(jsonPath("$.details.trend.rankPosition").value(23))
+                .andExpect(jsonPath("$.details.trend.rankChange").value(17))
+                .andExpect(jsonPath("$.details.potential.rankPosition").value(81))
+                .andExpect(jsonPath("$.details.potential.rankChange").value(-3))
+                .andExpect(jsonPath("$.details.snapshotAt").value("2026-07-24T09:00:00"));
+    }
+
+    @Test
+    @DisplayName("직전 스냅샷에 없던 키워드는 rankChange 와 searchScoreChange 가 null 이다")
+    void returnsNullChangesWhenAbsentFromPreviousSnapshot() throws Exception {
+        long keywordId = insertKeyword("두바이 초콜릿");
+        long other = insertKeyword("마라탕");
+        insertSnapshot(RankingType.TREND, other, 1, "0.9000", PREVIOUS);
+        insertSnapshot(RankingType.TREND, keywordId, 5, "0.8234", LATEST);
+
+        mockMvc.perform(get(URL, keywordId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.searchScore").value(82.34))
+                .andExpect(jsonPath("$.details.searchScoreChange").value(nullValue()))
+                .andExpect(jsonPath("$.details.trend.rankPosition").value(5))
+                .andExpect(jsonPath("$.details.trend.rankChange").value(nullValue()))
+                .andExpect(jsonPath("$.details.potential").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("최신 TREND 스냅샷에 없으면 searchScore·trend 는 null 이고, snapshotAt 은 최신 TREND 스냅샷 시각이다")
+    void returnsNullSearchScoreWhenOutOfLatestTrendRanking() throws Exception {
+        long keywordId = insertKeyword("두바이 초콜릿");
+        insertSnapshot(RankingType.TREND, keywordId, 3, "0.9000", PREVIOUS);
+        insertSnapshot(RankingType.TREND, insertKeyword("마라탕"), 1, "0.9000", LATEST);
+        insertSnapshot(RankingType.POTENTIAL, keywordId, 2, "0.7000", LATEST);
+
+        mockMvc.perform(get(URL, keywordId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.searchScore").value(nullValue()))
+                .andExpect(jsonPath("$.details.searchScoreChange").value(nullValue()))
+                .andExpect(jsonPath("$.details.trend").value(nullValue()))
+                .andExpect(jsonPath("$.details.potential.rankPosition").value(2))
+                .andExpect(jsonPath("$.details.potential.rankChange").value(nullValue()))
+                .andExpect(jsonPath("$.details.snapshotAt").value("2026-07-24T09:00:00"));
+    }
+
+    @Test
     @DisplayName("없는 키워드면 404 를 내려준다")
     void returnsNotFoundForUnknownKeyword() throws Exception {
         mockMvc.perform(get(URL, 999_999))
@@ -89,6 +150,17 @@ class KeywordDetailApiTest {
         jdbcTemplate.update("INSERT INTO KEYWORD (keyword_name, first_collected_at) VALUES (?, ?)",
                 name, LocalDateTime.of(2026, 7, 1, 0, 0));
         return jdbcTemplate.queryForObject("SELECT id FROM KEYWORD WHERE keyword_name = ?", Long.class, name);
+    }
+
+    private long insertSnapshot(RankingType rankingType, long keywordId, int rank, String score,
+                                LocalDateTime snapshotAt) {
+        jdbcTemplate.update(
+                "INSERT INTO RANKING_SNAPSHOT (ranking_type, keyword_id, rank_position, trend_score, snapshot_at)"
+                        + " VALUES (?, ?, ?, ?, ?)",
+                rankingType.name(), keywordId, rank, new BigDecimal(score), snapshotAt);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM RANKING_SNAPSHOT WHERE ranking_type = ? AND keyword_id = ? AND snapshot_at = ?",
+                Long.class, rankingType.name(), keywordId, snapshotAt);
     }
 
     private long insertCategory(String name) {
