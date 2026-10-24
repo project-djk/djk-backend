@@ -127,6 +127,44 @@ class KeywordDetailApiTest {
     }
 
     @Test
+    @DisplayName("최신 TREND·POTENTIAL·RISING 스냅샷 row 의 뱃지를 중복 없이 모으고, 이전 스냅샷의 뱃지는 뺀다")
+    void collectsBadgesFromLatestSnapshots() throws Exception {
+        long keywordId = insertKeyword("두바이 초콜릿");
+        insertBadge(insertSnapshot(RankingType.TREND, keywordId, 30, "0.5000", PREVIOUS), "STEADY");
+        insertBadge(insertSnapshot(RankingType.TREND, keywordId, 23, "0.9600", LATEST), "TREND_NEW");
+        insertBadge(insertSnapshot(RankingType.POTENTIAL, keywordId, 81, "0.2900", LATEST), "POTENTIAL_NEW");
+        long rising = insertSnapshot(RankingType.RISING, keywordId, 1, "0.9600", LATEST);
+        insertBadge(rising, "RISING");
+        insertBadge(rising, "TREND_NEW");
+
+        mockMvc.perform(get(URL, keywordId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.badges.length()").value(3))
+                .andExpect(jsonPath("$.details.badges[0]").value("TREND_NEW"))
+                .andExpect(jsonPath("$.details.badges[1]").value("POTENTIAL_NEW"))
+                .andExpect(jsonPath("$.details.badges[2]").value("RISING"));
+    }
+
+    @Test
+    @DisplayName("topRelation 은 이 키워드 기준 연관도가 가장 높은 연관어이고, 동점이면 연관 키워드 id 가 작은 쪽이다")
+    void returnsTopRelation() throws Exception {
+        long keywordId = insertKeyword("두바이 초콜릿");
+        long pistachio = insertKeyword("피스타치오");
+        long kadaif = insertKeyword("카다이프");
+        long chocolate = insertKeyword("초콜릿");
+        long reverse = insertKeyword("역방향");
+        insertRelation(keywordId, chocolate, "0.5000");
+        insertRelation(keywordId, pistachio, "0.9800");
+        insertRelation(keywordId, kadaif, "0.9800");
+        insertRelation(reverse, keywordId, "0.9900"); // 이 키워드를 연관어로 가진 row 는 보지 않는다
+
+        mockMvc.perform(get(URL, keywordId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.details.topRelation.keywordName").value("피스타치오"))
+                .andExpect(jsonPath("$.details.topRelation.relevanceScore").value(98.0));
+    }
+
+    @Test
     @DisplayName("없는 키워드면 404 를 내려준다")
     void returnsNotFoundForUnknownKeyword() throws Exception {
         mockMvc.perform(get(URL, 999_999))
@@ -161,6 +199,18 @@ class KeywordDetailApiTest {
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM RANKING_SNAPSHOT WHERE ranking_type = ? AND keyword_id = ? AND snapshot_at = ?",
                 Long.class, rankingType.name(), keywordId, snapshotAt);
+    }
+
+    private void insertBadge(long rankingSnapshotId, String badgeType) {
+        jdbcTemplate.update(
+                "INSERT INTO RANKING_SNAPSHOT_BADGE (ranking_snapshot_id, badge_type) VALUES (?, ?)",
+                rankingSnapshotId, badgeType);
+    }
+
+    private void insertRelation(long keywordId, long relatedKeywordId, String relevance) {
+        jdbcTemplate.update(
+                "INSERT INTO KEYWORD_RELATION (keyword_id, related_keyword_id, relevance_score) VALUES (?, ?, ?)",
+                keywordId, relatedKeywordId, new BigDecimal(relevance));
     }
 
     private long insertCategory(String name) {

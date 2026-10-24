@@ -10,6 +10,7 @@ import com.djk.domain.category.entity.QCategory;
 import com.djk.domain.keyword.entity.QKeyword;
 import com.djk.domain.keyword.entity.QKeywordCategory;
 import com.djk.domain.keyword.entity.QKeywordRelation;
+import com.djk.domain.keyword.entity.KeywordRelation;
 import com.djk.domain.keyword.entity.QTrendIndexHistory;
 import com.djk.domain.keyword.entity.TrendIndexHistory;
 import com.djk.domain.ranking.dto.SnapshotTimes;
@@ -105,6 +106,19 @@ class KeywordRepositoryImpl implements KeywordRepositoryCustom {
                     }
                 });
         return namesByKeywordId;
+    }
+
+    @Override
+    public KeywordRelation findTopRelation(long keywordId) {
+        QKeywordRelation relation = QKeywordRelation.keywordRelation;
+        QKeyword related = new QKeyword("related");
+        return queryFactory
+                .selectFrom(relation)
+                .join(relation.relatedKeyword, related).fetchJoin()
+                .where(relation.keyword.id.eq(keywordId))
+                .orderBy(relation.relevanceScore.desc(), related.id.asc())
+                .limit(1)
+                .fetchFirst();
     }
 
     @Override

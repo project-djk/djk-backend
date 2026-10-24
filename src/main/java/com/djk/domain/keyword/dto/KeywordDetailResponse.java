@@ -1,5 +1,6 @@
 package com.djk.domain.keyword.dto;
 
+import com.djk.domain.keyword.entity.KeywordRelation;
 import com.djk.domain.ranking.entity.BadgeType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,13 @@ public record KeywordDetailResponse(
     }
 
     public record TopRelation(String keywordName, BigDecimal relevanceScore) {
+
+        static TopRelation from(KeywordRelation relation) {
+            return relation == null
+                    ? null
+                    : new TopRelation(relation.getRelatedKeyword().getKeywordName(),
+                            toScore100(relation.getRelevanceScore()));
+        }
     }
 
     public static KeywordDetailResponse from(KeywordDetail detail) {
@@ -36,12 +44,12 @@ public record KeywordDetailResponse(
                 detail.keyword().getId(),
                 detail.keyword().getKeywordName(),
                 detail.categories(),
-                List.of(),
+                detail.badges(),
                 toScore100(trendScore),
                 toScore100(trendScoreChange),
                 Rank.from(detail.trend()),
                 Rank.from(detail.potential()),
-                null,
+                TopRelation.from(detail.topRelation()),
                 detail.snapshotAt());
     }
 

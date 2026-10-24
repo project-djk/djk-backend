@@ -5,6 +5,7 @@ import com.djk.domain.keyword.dto.RankEntry;
 import com.djk.domain.keyword.entity.Keyword;
 import com.djk.domain.keyword.repository.KeywordRepository;
 import com.djk.domain.ranking.dto.SnapshotTimes;
+import com.djk.domain.ranking.entity.BadgeType;
 import com.djk.domain.ranking.entity.RankingSnapshot;
 import com.djk.domain.ranking.entity.RankingType;
 import com.djk.domain.ranking.repository.RankingSnapshotRepository;
@@ -12,6 +13,9 @@ import com.djk.global.exception.ResourceNotFoundException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,14 +43,27 @@ public class KeywordDetailService {
         RankingSnapshot previousTrend = findPreviousRow(trend);
         RankingSnapshot potential = findRow(RankingType.POTENTIAL, latest.of(RankingType.POTENTIAL), keywordId);
         RankingSnapshot previousPotential = findPreviousRow(potential);
+        RankingSnapshot rising = findRow(RankingType.RISING, latest.of(RankingType.RISING), keywordId);
 
         return new KeywordDetail(
                 keyword,
                 categories,
+                badges(keywordId, trend, potential, rising),
                 rankEntry(trend, previousTrend),
                 rankEntry(potential, previousPotential),
                 previousTrend == null ? null : previousTrend.getTrendScore(),
+                keywordRepository.findTopRelation(keywordId),
                 snapshotAt);
+    }
+
+    /** 최신 스냅샷 row 들에 붙은 뱃지. 어느 최신 스냅샷에도 없으면 빈 목록. */
+    private List<BadgeType> badges(long keywordId, RankingSnapshot... latestRows) {
+        List<Long> snapshotIds = Stream.of(latestRows).filter(Objects::nonNull).map(RankingSnapshot::getId).toList();
+        if (snapshotIds.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(rankingSnapshotRepository.findBadgeTypesBySnapshotIds(snapshotIds)
+                .getOrDefault(keywordId, Set.of()));
     }
 
     /** 그 유형의 스냅샷이 없으면(snapshotAt 이 null) null. */
