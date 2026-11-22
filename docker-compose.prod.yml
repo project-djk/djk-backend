@@ -1,0 +1,17 @@
+# 운영(EC2) 배포용. DB 는 RDS 를 쓰므로 MySQL 컨테이너는 없다. (로컬 개발용은 docker-compose.yml)
+# EC2 의 레포 루트에 .env 를 만들고 아래 값을 채운 뒤 실행한다.
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f backend
+services:
+  backend:
+    build: .
+    container_name: djk-backend
+    restart: unless-stopped
+    ports:
+      - "80:8080"   # 보안그룹에서 80 이 이미 열려 있다
+    environment:
+      DB_URL: ${DB_URL:?DB_URL(.env)에 RDS 주소를 설정하세요}
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME(.env)을 설정하세요}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD(.env)를 설정하세요}
+      # 비워두면 Swagger 가 꺼진다. 프론트 연동 중에 Swagger 가 필요하면 .env 에 SPRING_PROFILES_ACTIVE=dev
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
