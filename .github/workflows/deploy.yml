@@ -1,0 +1,63 @@
+# develop 에 머지되고 CI 가 통과하면 EC2 에 자동 배포한다.
+# 필요한 GitHub Secrets: EC2_HOST(서버 퍼블릭 IP), EC2_USER(ubuntu), EC2_SSH_KEY(배포용 SSH 개인키)
+# 서버 IP 가 바뀌면(탄력적 IP 없음, 인스턴스 중지/시작 시) EC2_HOST 를 새 IP 로 바꾼다.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch: # Actions 탭에서 수동 실행
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # 수동 실행이거나, develop 에 push 된 CI 가 성공했을 때만 (PR 의 CI 는 제외)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: SSH 키 준비
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: EC2 에서 최신 develop 으로 재빌드·재시작
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$EC2_USER@$EC2_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd ~/djk-backend
+          git fetch origin develop
+          git reset --hard origin/develop   # .env 는 gitignore 라 그대로 남는다
+          docker compose -f docker-compose.prod.yml up -d --build
+          docker image prune -f
+
+          # 기동 확인: 최대 2분 동안 API 응답을 기다린다
+          for i in $(seq 1 24); do
+            if curl -fsS http://localhost/api/v1/keywords/recommended > /dev/null; then
+              echo "배포 성공"; exit 0
+            fi
+            sleep 5
+          done
+          echo "API 가 응답하지 않습니다. 최근 로그:"
+          docker logs --tail 80 djk-backend
+          exit 1
+          REMOTE
+
+      - name: SSH 키 정리
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
