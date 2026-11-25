@@ -60,10 +60,11 @@ jobs:
           # 기동 확인: 요청마다 최대 5초, 전체 최대 2분 동안 API 응답을 기다린다
           # 요청·대기 시간은 남은 시간을 넘지 않고, 마감 뒤에 온 응답은 성공으로 보지 않는다
           deadline=$((SECONDS + 120))
-          while [ "$SECONDS" -lt "$deadline" ]; do
+          while :; do
             left=$((deadline - SECONDS))
+            [ "$left" -gt 0 ] || break   # curl --max-time 0 은 제한 없음이라 0 이하면 호출하지 않는다
             if curl -fsS --connect-timeout 3 --max-time $(( left < 5 ? left : 5 )) http://localhost/api/v1/keywords/recommended > /dev/null \
-              && [ "$SECONDS" -le "$deadline" ]; then
+              && [ "$SECONDS" -lt "$deadline" ]; then
               echo "배포 성공"; exit 0
             fi
             left=$((deadline - SECONDS))
