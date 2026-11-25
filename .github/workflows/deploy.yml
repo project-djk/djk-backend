@@ -58,12 +58,16 @@ jobs:
           docker image prune -f
 
           # 기동 확인: 요청마다 최대 5초, 전체 최대 2분 동안 API 응답을 기다린다
+          # 요청·대기 시간은 남은 시간을 넘지 않고, 마감 뒤에 온 응답은 성공으로 보지 않는다
           deadline=$((SECONDS + 120))
           while [ "$SECONDS" -lt "$deadline" ]; do
-            if curl -fsS --connect-timeout 3 --max-time 5 http://localhost/api/v1/keywords/recommended > /dev/null; then
+            left=$((deadline - SECONDS))
+            if curl -fsS --connect-timeout 3 --max-time $(( left < 5 ? left : 5 )) http://localhost/api/v1/keywords/recommended > /dev/null \
+              && [ "$SECONDS" -le "$deadline" ]; then
               echo "배포 성공"; exit 0
             fi
-            sleep 5
+            left=$((deadline - SECONDS))
+            [ "$left" -gt 0 ] && sleep $(( left < 5 ? left : 5 ))
           done
           echo "API 가 응답하지 않습니다. 최근 로그:"
           docker logs --tail 80 djk-backend
