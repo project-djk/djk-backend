@@ -1,0 +1,11 @@
+.git
+.github
+.gradle
+.idea
+.claude
+.scratch
+build
+out
+docs
+.env
+*.md
