@@ -15,7 +15,7 @@
    - 이미지 빌드에서는 테스트를 건너뛴다(`-x test`). 테스트는 Testcontainers가 필요해 CI가 맡는다.
    - 컨테이너 포트 8080을 호스트 80으로 연다.
 2. **DB는 RDS를 쓰고, 접속 정보는 EC2 레포 루트의 `.env`로만 받는다.** `.env`는 gitignore 대상이고 이미지에도 들어가지 않는다(`.dockerignore`). 값이 빠지면 compose가 시작하지 않는다.
-3. **배포는 GitHub Actions `Deploy` 워크플로가 한다.** develop에 push된 CI가 성공하면(`workflow_run`) SSH로 EC2에 접속해 `git reset --hard origin/develop` → `docker compose up -d --build`를 실행한다. PR의 CI로는 배포하지 않는다. Actions 탭에서 수동 실행도 된다.
+3. **배포는 GitHub Actions `Deploy` 워크플로가 한다.** develop에 push된 CI가 성공하면(`workflow_run`) SSH로 EC2에 접속해 **CI가 성공한 그 커밋**으로 `git reset --hard` → `docker compose up -d --build`를 실행한다. CI가 끝나기 전에 develop에 새 커밋이 들어와도, 검증되지 않은 커밋은 배포되지 않는다. PR의 CI로는 배포하지 않는다. Actions 탭에서 수동 실행도 되며, 이때는 develop 최신 커밋을 배포한다.
    - 배포 후 `GET /api/v1/keywords/recommended`가 2분 안에 응답하지 않으면 실패로 보고 컨테이너 로그를 남긴다.
    - 접속 정보는 GitHub Secrets(`EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`)에 둔다.
 4. **운영은 기본 프로파일로 띄워 Swagger를 끈다.** 연동 중 Swagger가 필요할 때만 `.env`에 `SPRING_PROFILES_ACTIVE=dev`를 넣는다.
@@ -33,4 +33,4 @@
 - 빌드를 EC2에서 하므로 배포 중 서버 CPU·메모리를 쓴다. 인스턴스가 작으면 배포가 느려지거나 메모리가 부족할 수 있다. 그때는 레지스트리 방식으로 바꾼다.
 - 탄력적 IP가 없어 인스턴스를 중지·시작하면 IP가 바뀐다. 그때마다 `EC2_HOST` Secret을 고친다.
 - 무중단 배포가 아니다. 컨테이너를 교체하는 동안 잠깐 응답이 끊긴다.
-- 워크플로는 항상 develop 최신 커밋을 배포한다. 롤백은 develop에 revert 커밋을 머지하는 방식이다.
+- 롤백은 develop에 revert 커밋을 머지하는 방식이다.

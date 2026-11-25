@@ -10,6 +10,9 @@ on:
     branches: [develop]
   workflow_dispatch: # Actions 탭에서 수동 실행
 
+# GITHUB_TOKEN 을 쓰지 않으므로 권한을 주지 않는다. 서버 접속은 SSH 키로만 한다.
+permissions: {}
+
 concurrency:
   group: deploy-ec2
   cancel-in-progress: false
@@ -33,22 +36,31 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-      - name: EC2 에서 최신 develop 으로 재빌드·재시작
+      - name: EC2 에서 재빌드·재시작
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
+          # 자동 실행은 CI 가 성공한 바로 그 커밋을 배포한다. 그사이 develop 에 새 커밋이 들어와도 그 커밋은 자기 CI 가 끝난 뒤 배포된다.
+          # 수동 실행은 develop 최신 커밋을 배포한다.
+          DEPLOY_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'origin/develop' }}
         run: |
-          ssh -i ~/.ssh/deploy_key "$EC2_USER@$EC2_HOST" 'bash -s' <<'REMOTE'
+          if [ "$DEPLOY_REF" != "origin/develop" ] && ! [[ "$DEPLOY_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "배포 대상 커밋이 올바르지 않습니다: $DEPLOY_REF"; exit 1
+          fi
+          ssh -i ~/.ssh/deploy_key "$EC2_USER@$EC2_HOST" "bash -s -- $DEPLOY_REF" <<'REMOTE'
           set -euo pipefail
+          DEPLOY_REF="$1"
           cd ~/djk-backend
           git fetch origin develop
-          git reset --hard origin/develop   # .env 는 gitignore 라 그대로 남는다
+          git reset --hard "$DEPLOY_REF"   # .env 는 gitignore 라 그대로 남는다
+          echo "배포 커밋: $(git rev-parse HEAD)"
           docker compose -f docker-compose.prod.yml up -d --build
           docker image prune -f
 
-          # 기동 확인: 최대 2분 동안 API 응답을 기다린다
-          for i in $(seq 1 24); do
-            if curl -fsS http://localhost/api/v1/keywords/recommended > /dev/null; then
+          # 기동 확인: 요청마다 최대 5초, 전체 최대 2분 동안 API 응답을 기다린다
+          deadline=$((SECONDS + 120))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl -fsS --connect-timeout 3 --max-time 5 http://localhost/api/v1/keywords/recommended > /dev/null; then
               echo "배포 성공"; exit 0
             fi
             sleep 5
